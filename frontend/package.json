@@ -1,0 +1,30 @@
+{
+  "name": "finrobot-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.0.0",
+    "@tailwindcss/typography": "^0.5.16",
+    "autoprefixer": "^10.4.21",
+    "i18next": "^25.3.2",
+    "postcss": "^8.5.6",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-i18next": "^15.6.1",
+    "react-markdown": "^10.1.0",
+    "react-query": "^3.39.2",
+    "remark-gfm": "^4.0.1",
+    "tailwindcss": "^3.4.17"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "vite": "^7.0.6"
+  }
+}
