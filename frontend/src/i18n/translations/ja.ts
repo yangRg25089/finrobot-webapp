@@ -13,7 +13,7 @@ const translations = {
     submit: '送信',
     submitting: '送信中...',
     switchscript: 'スクリプトを切り替える',
-    summary: '結論',
+    summary: '会話',
     elapsedTime: '実行時間',
   },
 };

@@ -13,7 +13,7 @@ const translations = {
     submit: 'Submit',
     submitting: 'Submitting...',
     switchscript: 'Switch Scripts',
-    summary: 'Summary',
+    summary: 'Conversation',
     elapsedTime: 'Elapsed Time',
   },
 };

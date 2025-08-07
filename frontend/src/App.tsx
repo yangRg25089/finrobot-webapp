@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
-import Topbar from "./components/Topbar";
-import { Sidebar } from "./components/Sidebar";
-import ScriptForm from "./components/ScriptForm";
-import ResultViewer from "./components/ResultViewer";
-import { useScriptApi } from "./hooks/useScriptApi";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import ResultViewer from "./components/ResultViewer";
+import ScriptForm from "./components/ScriptForm";
+import { Sidebar } from "./components/Sidebar";
+import Topbar from "./components/Topbar";
 import analysis from "./config/analysis.json"; // 导入 analysis 数据
+import { useScriptApi } from "./hooks/useScriptApi";
 
 const App: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -79,7 +79,7 @@ const App: React.FC = () => {
 
           {/* Result Viewer */}
           <div className="flex-1">
-            <p className="text-gray-500">{t("common.elapsedTime")}: {(elapsedMs / 1000).toFixed(2)}s</p>
+            <p className="text-gray-500 w-100">{t("common.elapsedTime")}: {(elapsedMs / 1000).toFixed(2)}s</p>
             {loading ? (
               <div className="flex items-center justify-center">
                 <svg

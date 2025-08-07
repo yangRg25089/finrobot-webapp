@@ -96,3 +96,43 @@ def extract_conversation(user_agent: Any) -> List[Dict[str, Any]]:
                 out.append(_normalize_msg(m, name))
 
     return out
+
+
+def extract_all(up) -> list[dict]:
+    """
+    提取 user_agent 中的全部对话消息，不区分 assistant。
+    返回：[{role, name, tool_name, content}, ...]
+    """
+    out = []
+    cm = getattr(up, "chat_messages", None)
+    if isinstance(cm, dict):
+        for k, msgs in cm.items():
+            name = k if isinstance(k, str) else getattr(k, "name", None)
+            for m in msgs or []:
+                role = (
+                    m.get("role") if isinstance(m, dict) else getattr(m, "role", None)
+                ) or ""
+                content = (
+                    m.get("content")
+                    if isinstance(m, dict)
+                    else getattr(m, "content", None)
+                )
+                if isinstance(content, (bytes, bytearray)):
+                    content = content.decode("utf-8", "ignore")
+                out.append({"name": name, "role": role, "content": content})
+    mh = getattr(up, "message_history", None)
+    if isinstance(mh, dict):
+        for name, msgs in mh.items():
+            for m in msgs or []:
+                role = (
+                    m.get("role") if isinstance(m, dict) else getattr(m, "role", None)
+                ) or ""
+                content = (
+                    m.get("content")
+                    if isinstance(m, dict)
+                    else getattr(m, "content", None)
+                )
+                if isinstance(content, (bytes, bytearray)):
+                    content = content.decode("utf-8", "ignore")
+                out.append({"name": name, "role": role, "content": content})
+    return out

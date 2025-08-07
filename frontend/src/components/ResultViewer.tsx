@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -34,12 +34,14 @@ const ResultViewer: React.FC<ResultViewerProps> = ({ response }) => {
       .map((item: any, index: number) => (
         <div key={index} className="p-4 bg-white shadow rounded mb-4">
           <h2 className="text-gray-800 font-bold">{t("common.summary")}:</h2>
-          <div className="prose prose-slate dark:prose-invert max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {typeof item.content === "string"
-                ? item.content
-                : (item.content?.text ?? item.content?.content ?? "")}
-            </ReactMarkdown>
+          <div className="overflow-x-auto max-w-full">
+            <div className="prose prose-slate dark:prose-invert max-w-none w-full break-words">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {typeof item.content === "string"
+                  ? item.content
+                  : item.content?.text ?? item.content?.content ?? ""}
+              </ReactMarkdown>
+            </div>
           </div>
         </div>
       ))}

@@ -8,17 +8,31 @@
 
 import autogen
 from finrobot.agents.workflow import SingleAssistantRAG
+from tutorials_wrapper.utils import build_lang_directive, extract_all
 
 # for openai configuration, rename OAI_CONFIG_LIST_sample to OAI_CONFIG_LIST and replace the api keys
 
 
-def run(params: dict) -> dict:
+def run(params: dict, lang: str) -> dict:
+
+    company = params.get("company", "apple")
+    lang_snippet = build_lang_directive(lang)
+
+    from pathlib import Path
+
+    current_dir = Path(__file__).resolve().parent
+    config_path = current_dir.parent.parent / "OAI_CONFIG_LIST"
+    report_path1 = current_dir.parent.parent / "report/Microsoft_Annual_Report_2023.pdf"
+
+    report_path2 = (
+        current_dir.parent.parent / "report/2023-07-27_10-K_msft-20230630.htm.pdf"
+    )
 
     # Read OpenAI API keys from a JSON file
     llm_config = {
         "config_list": autogen.config_list_from_json(
-            "../../OAI_CONFIG_LIST",
-            filter_dict={"model": ["openai/gpt-4o-mini"]},
+            str(config_path),
+            filter_dict={"model": ["llama-3.3-70b-versatile"]},
         ),
         "timeout": 120,
         "temperature": 0,
@@ -39,7 +53,7 @@ def run(params: dict) -> dict:
             "task": "qa",
             "vector_db": None,  # Autogen has bug for this version
             "docs_path": [
-                "../report/Microsoft_Annual_Report_2023.pdf",
+                str(report_path1),
             ],
             "chunk_token_size": 1000,
             "get_or_create": True,
@@ -47,13 +61,22 @@ def run(params: dict) -> dict:
             "must_break_at_empty_line": False,
         },
     )
-    assitant.chat("How's msft's 2023 income? Provide with some analysis.")
+    prompt = "How's msft's 2023 income? Provide with some analysis."
 
-    final_reply1 = (
-        assitant.user_proxy.last_message()["content"]
-        if assitant.user_proxy.last_message()
-        else "No response from the analyst."
-    )
+    up = assitant.user_proxy
+    aa = assitant.assistant
+
+    if hasattr(up, "reset"):
+        up.reset()
+    if hasattr(aa, "reset"):
+        aa.reset()
+
+    if hasattr(up, "max_consecutive_auto_reply"):
+        up.max_consecutive_auto_reply = 6
+
+    up.initiate_chat(aa, message=prompt)
+
+    messages1 = extract_all(up)
 
     # Here we come up with a more complex case, where we put the 10-k report of MSFT here.
     #
@@ -67,7 +90,7 @@ def run(params: dict) -> dict:
             "task": "qa",
             "vector_db": None,  # Autogen has bug for this version
             "docs_path": [
-                "../report/2023-07-27_10-K_msft-20230630.htm.pdf",
+                str(report_path2),
             ],
             "chunk_token_size": 2000,
             "collection_name": "msft_10k",
@@ -76,17 +99,20 @@ def run(params: dict) -> dict:
         },
         rag_description="Retrieve content from MSFT's 2023 10-K report for detailed question answering.",
     )
-    assitant.chat("How's msft's 2023 income? Provide with some analysis.")
+    prompt = "How's msft's 2023 income? Provide with some analysis."
 
-    final_reply2 = (
-        assitant.user_proxy.last_message()["content"]
-        if assitant.user_proxy.last_message()
-        else "No response from the analyst."
-    )
+    up = assitant.user_proxy
+    aa = assitant.assistant
 
-    return {
-        "result": [
-            {"summary": final_reply1},
-            {"summary": final_reply2},
-        ]
-    }
+    if hasattr(up, "reset"):
+        up.reset()
+    if hasattr(aa, "reset"):
+        aa.reset()
+
+    if hasattr(up, "max_consecutive_auto_reply"):
+        up.max_consecutive_auto_reply = 6
+
+    up.initiate_chat(aa, message=prompt)
+
+    messages2 = extract_all(up)
+    return {"result": messages1 + messages2}

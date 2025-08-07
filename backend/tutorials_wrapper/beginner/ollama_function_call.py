@@ -22,7 +22,7 @@ def run(params: dict, lang: str) -> dict:
     llm_config = {
         "config_list": autogen.config_list_from_json(
             str(config_path),
-            filter_dict={"model": ["openai/gpt-4o-mini"]},
+            filter_dict={"model": ["llama-3.3-70b-versatile"]},
         ),
         "timeout": 120,
         "temperature": 0,

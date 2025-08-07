@@ -33,6 +33,20 @@
           "defaultValue": "apple"
         }
       }
+    },
+    {
+      "script_name": "ollama_stock_chart",
+      "folder": "beginner",
+      "params": {
+        "company": {
+          "type": "string",
+          "defaultValue": "apple"
+        },
+        "year": {
+          "type": "string",
+          "defaultValue": "2025"
+        }
+      }
     }
   ]
 }

@@ -13,7 +13,7 @@ const translations = {
     submit: '提交',
     submitting: '提交中...',
     switchscript: '切换脚本',
-    summary: '总结',
+    summary: '会话',
     elapsedTime: '耗时',
   },
 };
