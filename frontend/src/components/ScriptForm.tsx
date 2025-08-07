@@ -1,17 +1,26 @@
-import React, { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useModelList } from '../hooks/useModelList';
 
 interface ScriptFormProps {
   selectedScript: { script_name: string; folder: string; params: any } | null;
-  onSubmit: (data: { script_name: string; folder: string; params: any }) => Promise<void> | void;
-  loading?: boolean; // ← 新增，可选
+  onSubmit: (data: {
+    script_name: string;
+    folder: string;
+    params: any;
+  }) => Promise<void> | void;
+  loading?: boolean;
 }
 
-const ScriptForm: React.FC<ScriptFormProps> = ({ selectedScript, onSubmit, loading = false }) => {
+const ScriptForm: React.FC<ScriptFormProps> = ({
+  selectedScript,
+  onSubmit,
+  loading = false,
+}) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const { models, loading: modelsLoading } = useModelList();
 
-  // 当选择的脚本变化时，初始化默认值
   useEffect(() => {
     if (!selectedScript) {
       setFormData({});
@@ -20,14 +29,14 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ selectedScript, onSubmit, loadi
     const initial: Record<string, any> = {};
     Object.entries(selectedScript.params).forEach(([key, cfg]) => {
       const paramConfig = (cfg as any) || {};
-      const def = paramConfig.defaultValue ?? "";
+      const def = paramConfig.defaultValue ?? '';
       initial[key] = def;
     });
     setFormData(initial);
   }, [selectedScript]);
 
   if (!selectedScript) {
-    return <p>{t("common.switchscript")}</p>;
+    return <p>{t('common.switchscript')}</p>;
   }
 
   const handleChange = (key: string, value: any) => {
@@ -42,36 +51,80 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ selectedScript, onSubmit, loadi
       params: formData,
     });
   };
+  const scriptDesc = t(`common.descriptions.${selectedScript.script_name}`);
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-white shadow rounded space-y-4">
-      {Object.entries(selectedScript.params).map(([key, cfg]) => {
-        const paramConfig = (cfg as any) || {};
-        const type = paramConfig.type ?? "text";
-
-        return (
-          <div key={key}>
-            <label className="block text-gray-700 mb-1">{t(`params.${key}`)}</label>
-            <input
-              type={type}
-              value={formData[key] ?? ""}          // ← 只从 state 读
-              onChange={(e) => handleChange(key, e.target.value)}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-        );
-      })}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className={`w-full p-2 rounded text-white ${
-          loading ? "bg-blue-400 cursor-not-allowed opacity-60" : "bg-blue-500 hover:bg-blue-600"
-        }`}
+    <div className="flex gap-8">
+      {/* 说明区域 */}
+      <div className="w-[600px] max-w-[600px] min-w-[320px] bg-blue-50 rounded shadow p-6 flex flex-col">
+        <h2 className="text-2xl font-bold mb-4 text-blue-800">
+          {t('common.scriptIntroTitle') || '脚本说明'}
+        </h2>
+        <span className="text-blue-900 text-base">{scriptDesc}</span>
+      </div>
+      {/* 表单区域 */}
+      <form
+        onSubmit={handleSubmit}
+        className="w-[600px] max-w-[600px] min-w-[320px] bg-white rounded shadow p-6 flex flex-col space-y-4"
       >
-        {loading ? t("common.submitting") : t("common.submit")}
-      </button>
-    </form>
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">
+          {t('common.paramTitle') || '执行参数'}
+        </h2>
+        {Object.entries(selectedScript.params).map(([key, cfg]) => {
+          const paramConfig = (cfg as any) || {};
+          const type = paramConfig.type ?? 'text';
+          const isModelKey = key === '_AI_model';
+
+          return (
+            <div key={key} className="flex items-center mb-2">
+              <label
+                className="block text-gray-700 mr-2"
+                style={{ minWidth: 120, maxWidth: 150, width: 120 }}
+              >
+                {t(`common.params.${key}`)}
+              </label>
+              {isModelKey ? (
+                <select
+                  value={
+                    formData[key] ??
+                    paramConfig.defaultValue ??
+                    models[0]?.model ??
+                    ''
+                  }
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  className="flex-1 p-2 border rounded bg-white"
+                  disabled={modelsLoading}
+                >
+                  {models.map((m) => (
+                    <option key={m.model} value={m.model}>
+                      {m.model}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type={type}
+                  value={formData[key] ?? ''}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  className="flex-1 p-2 border rounded"
+                />
+              )}
+            </div>
+          );
+        })}
+        <button
+          type="submit"
+          disabled={loading}
+          className={`w-full p-2 rounded text-white ${
+            loading
+              ? 'bg-blue-400 cursor-not-allowed opacity-60'
+              : 'bg-blue-500 hover:bg-blue-600'
+          }`}
+        >
+          {loading ? t('common.submitting') : t('common.submit')}
+        </button>
+      </form>
+    </div>
   );
 };
 

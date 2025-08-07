@@ -16,6 +16,7 @@ from tutorials_wrapper.utils import build_lang_directive, extract_all
 def run(params: dict, lang: str) -> dict:
 
     company = params.get("company", "apple")
+    _AI_model = params.get("_AI_model", "gemini-2.5-flash")
     lang_snippet = build_lang_directive(lang)
 
     from pathlib import Path
@@ -32,10 +33,11 @@ def run(params: dict, lang: str) -> dict:
     llm_config = {
         "config_list": autogen.config_list_from_json(
             str(config_path),
-            filter_dict={"model": ["llama-3.3-70b-versatile"]},
+            filter_dict={"model": [_AI_model]},
         ),
         "timeout": 120,
         "temperature": 0,
+        "max_tokens": 1024,  # 控制生成长度
     }
 
     # From `finrobot.agents.workflow` we import the `SingleAssistantRAG`, which takes a `retrieve_config` as input.

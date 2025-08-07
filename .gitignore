@@ -61,8 +61,9 @@ backend/static/**
 !backend/static/.gitkeep
 
 # secrets / keys (commit an example file instead)
-backend/OAI_CONFIG_LIST copy
-backend/config_api_keys copy
+backend/OAI_CONFIG_LIST
+backend/config_api_keys
+backend/finance_llm_data/
 
 # if you generate notebooks’ checkpoints
 **/.ipynb_checkpoints/

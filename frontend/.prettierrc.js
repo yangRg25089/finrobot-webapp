@@ -5,4 +5,4 @@ module.exports = {
   printWidth: 80, // Wrap lines that exceed 80 characters
   tabWidth: 2, // Use 2 spaces for indentation
   jsxSingleQuote: false, // Use double quotes in JSX
-}; 
+};

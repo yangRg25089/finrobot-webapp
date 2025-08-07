@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import base64
+import io
 import json
+from pathlib import Path
 from typing import Any, Dict, Final, List
+
+import fitz  # PyMuPDF
+from PIL import Image
 
 JA_DIRECTIVE: Final[
     str
-] = """言語指示：
+] = """
+言語指示：
 - 分析本文を日本語で作成してください。
 - セクション構成は英語版と同等にしつつ、日本語として自然な表現を用いてください。
 - ティッカー、コード識別子、APIフィールド名は英語のままにしてください（翻訳しない）。
@@ -15,7 +22,8 @@ JA_DIRECTIVE: Final[
 
 ZH_DIRECTIVE: Final[
     str
-] = """语言指令：
+] = """
+语言指令：
 - 分析正文使用中文撰写，并保持逻辑清晰、结构完整。
 - 股票代码、函数名、API 字段名保持英文，不要翻译。
 - 使用 Markdown 格式；日期使用 YYYY-MM-DD。
@@ -136,3 +144,14 @@ def extract_all(up) -> list[dict]:
                     content = content.decode("utf-8", "ignore")
                 out.append({"name": name, "role": role, "content": content})
     return out
+
+
+def pdf_first_page_to_base64(pdf_path: Path) -> str:
+    """把 PDF 首页转成 base64-PNG 字符串"""
+    pdf = fitz.open(str(pdf_path))
+    page = pdf.load_page(0)
+    pix = page.get_pixmap()
+    img = Image.open(io.BytesIO(pix.tobytes("png")))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("ascii")
