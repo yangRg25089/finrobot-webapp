@@ -11,6 +11,7 @@ const Topbar: React.FC<TopbarProps> = ({ onUserClick, onscriptSwitch }) => {
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
+    localStorage.setItem('preferredLang', lng);
   };
 
   return (

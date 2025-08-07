@@ -56,19 +56,19 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
   return (
     <div className="flex gap-8">
       {/* 说明区域 */}
-      <div className="w-[600px] max-w-[600px] min-w-[320px] bg-blue-50 rounded shadow p-6 flex flex-col">
+      <div className="w-[33rem] max-w-[33rem] min-w-[320px] bg-blue-50 rounded shadow p-6 flex flex-col">
         <h2 className="text-2xl font-bold mb-4 text-blue-800">
-          {t('common.scriptIntroTitle') || '脚本说明'}
+          {t('common.scriptIntroTitle')}
         </h2>
         <span className="text-blue-900 text-base">{scriptDesc}</span>
       </div>
       {/* 表单区域 */}
       <form
         onSubmit={handleSubmit}
-        className="w-[600px] max-w-[600px] min-w-[320px] bg-white rounded shadow p-6 flex flex-col space-y-4"
+        className="w-[33rem] max-w-[33rem] min-w-[320px] bg-white rounded shadow p-6 flex flex-col space-y-4"
       >
         <h2 className="text-2xl font-bold mb-4 text-gray-800">
-          {t('common.paramTitle') || '执行参数'}
+          {t('common.paramTitle')}
         </h2>
         {Object.entries(selectedScript.params).map(([key, cfg]) => {
           const paramConfig = (cfg as any) || {};

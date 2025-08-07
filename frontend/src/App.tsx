@@ -22,11 +22,18 @@ const App: React.FC = () => {
   const { runscript, loading, error } = useScriptApi();
 
   useEffect(() => {
-    // Set default language based on user agent
-    const userLangFull = navigator.language;
-    const userLang = userLangFull.split('-')[0];
-    const supportedLanguages = ['en', 'zh', 'ja'];
-    const defaultLang = supportedLanguages.includes(userLang) ? userLang : 'en';
+    // 1) 若用户有保存的语言 → 直接用
+    const savedLang = localStorage.getItem('preferredLang');
+
+    const supported = ['en', 'zh', 'ja'];
+    if (savedLang && supported.includes(savedLang)) {
+      i18n.changeLanguage(savedLang);
+      return;
+    }
+
+    // 2) 否则根据浏览器语言推断
+    const userLang = navigator.language.split('-')[0];
+    const defaultLang = supported.includes(userLang) ? userLang : 'en';
     i18n.changeLanguage(defaultLang);
   }, [i18n]);
 
