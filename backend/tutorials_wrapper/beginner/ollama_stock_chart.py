@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from autogen import AssistantAgent, UserProxyAgent
+from tutorials_wrapper.runtime import guard_run
 from tutorials_wrapper.utils import build_lang_directive, extract_conversation
 
 
@@ -50,6 +51,7 @@ def is_term_msg_factory(work_dir: Path):
     return _term
 
 
+@guard_run(reraise=True)
 def run(params: dict, lang: str) -> dict:
     company = params.get("company", "AAPL")
     year = params.get("year", "2025")

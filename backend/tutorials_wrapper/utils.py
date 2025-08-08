@@ -3,11 +3,16 @@ from __future__ import annotations
 import base64
 import io
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, Final, List
 
 import fitz  # PyMuPDF
 from PIL import Image
+
+# =========================
+# Language directives
+# =========================
 
 JA_DIRECTIVE: Final[
     str
@@ -41,10 +46,17 @@ def build_lang_directive(lang: str | None) -> str:
     return ""
 
 
+# =========================
+# Message normalization
+# =========================
+
+
 def _to_plain_content(content: Any) -> Any:
+    """把常见 message.content 形态揉成普通 str/list/dict，尽量保真。"""
     if isinstance(content, (bytes, bytearray)):
         return content.decode("utf-8", "ignore")
     if isinstance(content, list):
+        # 有些框架把多段内容放 list；尽量取 text/content/value 字段，退化成 str
         parts = []
         for c in content:
             if isinstance(c, dict):
@@ -52,6 +64,8 @@ def _to_plain_content(content: Any) -> Any:
             else:
                 parts.append(str(c))
         return "\n".join([p for p in parts if p])
+
+    # 常见简单类型直接返回；复杂对象尽量 JSON 化兜底为 str
     if isinstance(content, (str, int, float, bool, type(None), dict)):
         return content
     try:
@@ -61,6 +75,7 @@ def _to_plain_content(content: Any) -> Any:
 
 
 def _normalize_msg(m: Any, conv_name: str | None) -> Dict[str, Any]:
+    """把不同 SDK 的消息结构拍平为统一 dict。"""
     if isinstance(m, dict):
         role = m.get("role") or m.get("from")
         name = m.get("name") or conv_name
@@ -81,6 +96,52 @@ def _normalize_msg(m: Any, conv_name: str | None) -> Dict[str, Any]:
     }
 
 
+# =========================
+# Meaningfulness filter
+# =========================
+
+EMPTY_CODEBLOCK_RE = re.compile(
+    r"""^\s*`{3,}[\w+\-]*\s*(?:\r?\n|\r|\s)*`{3,}\s*$""", re.DOTALL
+)
+
+# 去除掉 markdown 装饰符后检查是否还有“内容字符”
+DECORATIONS_RE = re.compile(r"[`*_#>\-\+\|\[\]\(\)~\^=]{1,}")
+
+# 去除零宽字符
+ZERO_WIDTH_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
+
+
+def is_meaningful(raw: str) -> bool:
+    if raw is None:
+        return False
+
+    s = ZERO_WIDTH_RE.sub("", str(raw))
+    t = s.strip()
+    if not t:
+        return False
+
+    if t.upper() == "TERMINATE":
+        return False
+
+    # 纯空的代码块（```[lang] ... ```，中间只有空白/换行）
+    if EMPTY_CODEBLOCK_RE.match(t):
+        return False
+
+    # 去掉常见 markdown 装饰符，再看是否还有“内容字符”
+    # 先把装饰符替换为空，再去空白
+    stripped = DECORATIONS_RE.sub("", t)
+    stripped = stripped.strip()
+
+    # 简化判断：是否存在任意“字母/数字/东亚文字”
+    if not re.search(r"[A-Za-z0-9\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]", stripped):
+        return False
+
+    return True
+
+
+# =========================
+# Conversation extractors
+# =========================
 def extract_conversation(user_agent: Any) -> List[Dict[str, Any]]:
     """
     提取 user_agent 中的全部对话消息（不区分 assistant）。
@@ -116,7 +177,7 @@ def extract_conversation(user_agent: Any) -> List[Dict[str, Any]]:
                     continue
                 if isinstance(content, str):
                     s = content.strip()
-                    if not s or s.upper() == "TERMINATE":
+                    if not s or s.upper() == "TERMINATE" or not is_meaningful(s):
                         continue
                 elif isinstance(content, list):
                     # 全部元素为假值则跳过（[], [""], [None], 等）
@@ -129,10 +190,7 @@ def extract_conversation(user_agent: Any) -> List[Dict[str, Any]]:
 
 
 def extract_all(up) -> list[dict]:
-    """
-    提取 user_agent 中的全部对话消息，不区分 assistant。
-    返回：[{role, name, tool_name, content}, ...]
-    """
+    """原始兜底：无过滤地抽出所有消息（调试用）。"""
     out = []
     cm = getattr(up, "chat_messages", None)
     if isinstance(cm, dict):
@@ -168,8 +226,13 @@ def extract_all(up) -> list[dict]:
     return out
 
 
+# =========================
+# PDF utility
+# =========================
+
+
 def pdf_first_page_to_base64(pdf_path: Path) -> str:
-    """把 PDF 首页转成 base64-PNG 字符串"""
+    """把 PDF 首页转成 base64-PNG 字符串（用于前端预览）。"""
     pdf = fitz.open(str(pdf_path))
     page = pdf.load_page(0)
     pix = page.get_pixmap()

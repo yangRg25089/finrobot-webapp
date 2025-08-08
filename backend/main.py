@@ -1,12 +1,14 @@
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from services.script_manager import run_script_stream
+from sse_starlette.sse import EventSourceResponse
 
 app = FastAPI(
     title="FinRobot API",
@@ -36,15 +38,41 @@ class scriptRequest(BaseModel):
     lang: str
 
 
-@app.post("/api/run-script")
-async def run_script_endpoint(request: scriptRequest):
+# ===== SSE 流式输出 =====
+@app.get("/api/run-script/stream")
+async def run_script_stream_endpoint(
+    script_path: str,
+    lang: str = "zh",
+    params: Optional[str] = None,  # 允许前端以 JSON 字符串传参（也可改成 dict）
+):
+    """
+    SSE：实时返回脚本运行的事件流（stdout/stderr/result/exit/error）
+    前端可用 EventSource 直接接收。
+    """
     try:
-        from services.script_manager import run_script
+        parsed_params: Dict[str, Any] = (
+            json.loads(params) if isinstance(params, str) and params else {}
+        )
+    except Exception:
+        parsed_params = {}
 
-        result = run_script(request.script_path, request.params, request.lang)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    async def event_gen():
+        try:
+            async for ev in run_script_stream(script_path, parsed_params, lang):
+                # SSE: 每条消息是一个 dict，写入 data 字段
+                yield {
+                    "event": "message",
+                    "data": json.dumps(ev, ensure_ascii=False),
+                }
+        except Exception as e:
+            yield {
+                "event": "error",
+                "data": json.dumps(
+                    {"type": "error", "error": str(e)}, ensure_ascii=False
+                ),
+            }
+
+    return EventSourceResponse(event_gen())
 
 
 BASE_DIR = Path(__file__).resolve()

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import LogsPanel from './components/LogsPanel';
 import ResultViewer from './components/ResultViewer';
 import ScriptForm from './components/ScriptForm';
 import { Sidebar } from './components/Sidebar';
 import Topbar from './components/Topbar';
 import { useAnalysisApi } from './hooks/useAnalysisApi';
-import { useScriptApi } from './hooks/useScriptApi';
+import { useRunScriptStream } from './hooks/useRunScriptStream';
 
 const App: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -16,10 +17,9 @@ const App: React.FC = () => {
     error: errorStrategies,
   } = useAnalysisApi();
   const [selectedScript, setSelectedScript] = useState<any>(null);
+  const { start, stop, logs, running, error, result } = useRunScriptStream();
 
-  const [result, setResult] = useState<any>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const { runscript, loading, error } = useScriptApi();
 
   useEffect(() => {
     // 1) 若用户有保存的语言 → 直接用
@@ -38,25 +38,31 @@ const App: React.FC = () => {
   }, [i18n]);
 
   useEffect(() => {
-    if (!loading) return;
-
-    const start = performance.now();
+    if (!running) return;
+    const startAt = performance.now();
     const id = window.setInterval(() => {
-      setElapsedMs(Math.round(performance.now() - start));
+      setElapsedMs(Math.round(performance.now() - startAt));
     }, 100);
-
-    return () => window.clearInterval(id);
-  }, [loading]);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [running]);
 
   const handlescriptSelect = (script: any) => {
     setSelectedScript(script);
   };
 
+  // ✅ 启动 SSE 流（替换原来的 runscript POST）
   const handleFormSubmit = async (data: any) => {
-    const result = await runscript(data, i18n.language);
-    if (result) {
-      setResult(result);
-    }
+    // 重置计时
+    setElapsedMs(0);
+
+    start({
+      scriptPath: data?.script_name,
+      folder: data?.folder,
+      lang: i18n.language,
+      payload: data?.params,
+    });
   };
 
   const formatElapsed = (ms: number) => {
@@ -104,21 +110,21 @@ const App: React.FC = () => {
           {/* 统一宽度与内边距，两个区域放一起 */}
           <div className="max-w-[1500px] mx-auto w-full p-4 flex flex-col gap-4 items-center">
             {/* Script Form */}
-            <div>
+            <div className="w-full">
               <ScriptForm
                 selectedScript={selectedScript}
                 onSubmit={handleFormSubmit}
-                loading={loading}
+                loading={running}
               />
             </div>
 
-            {/* Result Viewer（不再有自身的纵向滚动） */}
+            {/* Result Viewer */}
             <div className="w-full min-w-0">
               <p className="text-gray-500 w-100">
                 {t('common.elapsedTime')}: {formatElapsed(elapsedMs)}
               </p>
 
-              {loading ? (
+              {running ? (
                 <div className="flex items-center justify-center">
                   <svg
                     className="animate-spin h-5 w-5 mr-3 text-gray-500"
@@ -141,13 +147,29 @@ const App: React.FC = () => {
                     />
                   </svg>
                   <p>{t('common.loading')}</p>
+                  <button
+                    className="ml-4 px-3 py-1 border rounded"
+                    onClick={stop}
+                  >
+                    Stop
+                  </button>
                 </div>
-              ) : error ? (
-                <p className="text-red-500">
+              ) : null}
+
+              {/* ✅ Logs 移到这里，贴着“分析中/Stop”下面 */}
+              <div className="mt-3">
+                <LogsPanel logs={logs} running={running} />
+              </div>
+
+              {/* 结果/错误 */}
+              {error ? (
+                <p className="text-red-500 mt-3">
                   {t('common.error')}: {error}
                 </p>
               ) : (
-                <ResultViewer response={result} />
+                <div className="mt-3">
+                  <ResultViewer response={result} />
+                </div>
               )}
             </div>
           </div>
