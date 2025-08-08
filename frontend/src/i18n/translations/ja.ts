@@ -24,6 +24,8 @@ const translations = {
       ticker: 'ティッカー',
       fyear: '会計年度',
       question: '質問',
+      question1: '質問 1',
+      question2: '質問 2',
     },
     descriptions: {
       agent_annual_report:

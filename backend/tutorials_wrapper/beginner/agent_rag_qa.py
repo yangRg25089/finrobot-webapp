@@ -16,6 +16,14 @@ from tutorials_wrapper.utils import build_lang_directive, extract_all
 def run(params: dict, lang: str) -> dict:
 
     company = params.get("company", "apple")
+
+    question1 = params.get(
+        "question1", "How's msft's 2023 income? Provide with some analysis."
+    )
+
+    question2 = params.get(
+        "question2", "How's msft's 2023 income? Provide with some analysis."
+    )
     _AI_model = params.get("_AI_model", "gemini-2.5-flash")
     lang_snippet = build_lang_directive(lang)
 
@@ -63,7 +71,9 @@ def run(params: dict, lang: str) -> dict:
             "must_break_at_empty_line": False,
         },
     )
-    prompt = "How's msft's 2023 income? Provide with some analysis."
+
+    prompt = f"""{question1}
+        {lang_snippet}""".strip()
 
     up = assitant.user_proxy
     aa = assitant.assistant
@@ -101,7 +111,9 @@ def run(params: dict, lang: str) -> dict:
         },
         rag_description="Retrieve content from MSFT's 2023 10-K report for detailed question answering.",
     )
-    prompt = "How's msft's 2023 income? Provide with some analysis."
+
+    prompt = f"""{question2}
+        {lang_snippet}""".strip()
 
     up = assitant.user_proxy
     aa = assitant.assistant

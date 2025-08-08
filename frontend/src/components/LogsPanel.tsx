@@ -9,16 +9,19 @@ interface LogsPanelProps {
   logs: LogItem[];
   running: boolean;
   maxLines?: number; // 默认 2000
+  runKey?: string | number; // 每次新执行任务传一个新值
 }
 
 const LogsPanel: React.FC<LogsPanelProps> = ({
   logs,
   running,
   maxLines = 2000,
+  runKey,
 }) => {
   const [open, setOpen] = useState(true);
   const [follow, setFollow] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef(logs.length);
 
   // 限制行数，避免超长
   const view = logs.length > maxLines ? logs.slice(-maxLines) : logs;
@@ -30,14 +33,32 @@ const LogsPanel: React.FC<LogsPanelProps> = ({
     if (el) el.scrollTop = el.scrollHeight;
   }, [view, follow]);
 
-  // ✅ 有新内容时自动打开
-  const prevCountRef = useRef(logs.length);
+  // 新任务开始：重置计数 + 自动展开 + 开启 Follow
   useEffect(() => {
-    if (logs.length > prevCountRef.current) {
-      setOpen(true); // 自动打开
+    if (runKey !== undefined) {
       prevCountRef.current = logs.length;
+      setOpen(true);
+      setFollow(true);
     }
-  }, [logs]);
+  }, [runKey]);
+
+  // 日志变化：长度减少 → 被清空/替换（任务切换时也可能出现）
+  //          长度增加 → 有新内容 → 自动展开
+  useEffect(() => {
+    const prev = prevCountRef.current;
+    const curr = logs.length;
+
+    if (curr < prev) {
+      // 被清空/替换
+      prevCountRef.current = curr;
+      return;
+    }
+
+    if (curr > prev) {
+      setOpen(true);
+      prevCountRef.current = curr;
+    }
+  }, [logs.length]);
 
   // 跑完后默认收起
   useEffect(() => {
@@ -70,7 +91,7 @@ const LogsPanel: React.FC<LogsPanelProps> = ({
       {open && (
         <div
           ref={ref}
-          className="border rounded p-2 h-64 overflow-auto font-mono text-sm bg-black text-green-300 mt-2"
+          className="border rounded p-2 h-[32rem] overflow-auto font-mono text-sm bg-black text-green-300 mt-2"
         >
           {view.map((l, i) => (
             <div key={i} className={l.type === 'stderr' ? 'text-red-400' : ''}>

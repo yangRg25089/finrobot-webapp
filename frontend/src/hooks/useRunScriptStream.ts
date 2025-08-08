@@ -55,8 +55,7 @@ export function useRunScriptStream() {
       const qs = new URLSearchParams({
         script_path: `${folder}/${scriptPath}`,
         lang,
-        // 注意：SSE 查询串只能用字符串，这里用 JSON + encodeURIComponent
-        params: encodeURIComponent(JSON.stringify(payload)),
+        params: JSON.stringify(payload),
       });
 
       const url = `${base}/api/run-script/stream?${qs.toString()}`;

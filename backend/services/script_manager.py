@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, AsyncGenerator, Dict
 
@@ -61,7 +62,8 @@ async def run_script_stream(
 
             queue.put_nowait({"type": "result", "result": result})
         except Exception as e:
-            queue.put_nowait({"type": "error", "error": str(e)})
+            error_msg = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+            queue.put_nowait({"type": "error", "error": error_msg})
         finally:
             queue.put_nowait({"type": "exit"})
 

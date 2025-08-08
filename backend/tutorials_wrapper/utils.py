@@ -5,7 +5,8 @@ import io
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, Final, List
+from typing import Any, Dict, Final, List, Optional
+from urllib.parse import unquote, unquote_plus
 
 import fitz  # PyMuPDF
 from PIL import Image
@@ -240,3 +241,25 @@ def pdf_first_page_to_base64(pdf_path: Path) -> str:
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def _parse_params(params: Optional[str]) -> Dict[str, Any]:
+    if not params or not isinstance(params, str):
+        return {}
+    # 尝试 0/1/2 次解码
+    candidates = [params, unquote(params), unquote_plus(params)]
+    for cand in candidates:
+        try:
+            return json.loads(cand)
+        except Exception:
+            continue
+    # 再保守一点：如果像 "a=1&b=2" 这种 query 风格，也简单兜一下
+    kv = {}
+    try:
+        for pair in params.split("&"):
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                kv[unquote_plus(k)] = unquote_plus(v)
+    except Exception:
+        pass
+    return kv

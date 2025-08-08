@@ -24,6 +24,8 @@ const translations = {
       ticker: 'Ticker',
       fyear: 'Fiscal Year',
       question: 'Question',
+      question1: 'Question 1',
+      question2: 'Question 2',
       _AI_model: 'AI model',
     },
     descriptions: {

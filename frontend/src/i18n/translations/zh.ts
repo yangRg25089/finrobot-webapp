@@ -24,6 +24,8 @@ const translations = {
       ticker: '股票代码',
       fyear: '会计年度',
       question: '问题',
+      question1: '问题 1',
+      question2: '问题 2',
     },
     descriptions: {
       agent_annual_report:

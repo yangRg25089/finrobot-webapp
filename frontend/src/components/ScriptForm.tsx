@@ -9,13 +9,15 @@ interface ScriptFormProps {
     folder: string;
     params: any;
   }) => Promise<void> | void;
-  loading?: boolean;
+  onStop?: () => void;
+  running?: boolean;
 }
 
 const ScriptForm: React.FC<ScriptFormProps> = ({
   selectedScript,
   onSubmit,
-  loading = false,
+  onStop,
+  running = false,
 }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -51,6 +53,7 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
       params: formData,
     });
   };
+
   const scriptDesc = t(`common.descriptions.${selectedScript.script_name}`);
 
   return (
@@ -62,6 +65,7 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
         </h2>
         <span className="text-blue-900 text-base">{scriptDesc}</span>
       </div>
+
       {/* 表单区域 */}
       <form
         onSubmit={handleSubmit}
@@ -70,6 +74,7 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
         <h2 className="text-2xl font-bold mb-4 text-gray-800">
           {t('common.paramTitle')}
         </h2>
+
         {Object.entries(selectedScript.params).map(([key, cfg]) => {
           const paramConfig = (cfg as any) || {};
           const type = paramConfig.type ?? 'text';
@@ -112,17 +117,34 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
             </div>
           );
         })}
-        <button
-          type="submit"
-          disabled={loading}
-          className={`w-full p-2 rounded text-white ${
-            loading
-              ? 'bg-blue-400 cursor-not-allowed opacity-60'
-              : 'bg-blue-500 hover:bg-blue-600'
-          }`}
-        >
-          {loading ? t('common.submitting') : t('common.submit')}
-        </button>
+
+        {/* 按钮行：Submit(绿) + Stop(红) */}
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={running}
+            className={`flex-1 p-2 rounded text-white ${
+              running
+                ? 'bg-green-400 cursor-not-allowed opacity-60'
+                : 'bg-green-500 hover:bg-green-600'
+            }`}
+          >
+            {t('common.submit')}
+          </button>
+
+          <button
+            type="button"
+            onClick={onStop}
+            disabled={!running}
+            className={`flex-1 p-2 rounded text-white ${
+              running
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-red-400 cursor-not-allowed opacity-60'
+            }`}
+          >
+            Stop
+          </button>
+        </div>
       </form>
     </div>
   );

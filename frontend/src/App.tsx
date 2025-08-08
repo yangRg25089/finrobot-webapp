@@ -48,11 +48,45 @@ const App: React.FC = () => {
     };
   }, [running]);
 
+  useEffect(() => {
+    if (!strategies.length) return;
+
+    // 1) 先用 localStorage 恢复
+    const savedRaw = localStorage.getItem('selectedScript');
+    if (savedRaw) {
+      const saved = JSON.parse(savedRaw) as {
+        script_name: string;
+        folder: string;
+      };
+      const found = strategies.find(
+        (s) => s.script_name === saved.script_name && s.folder === saved.folder,
+      );
+      if (found) {
+        setSelectedScript(found);
+        return;
+      }
+    }
+
+    // 2) 没有 saved 或找不到的话：默认选“第一个一级目录的第一个脚本”
+    setSelectedScript(strategies[0]);
+  }, [strategies]);
+
   const handlescriptSelect = (script: any) => {
     setSelectedScript(script);
+    // 3) 选择后写入 localStorage
+    try {
+      localStorage.setItem(
+        'selectedScript',
+        JSON.stringify({
+          script_name: script.script_name,
+          folder: script.folder,
+        }),
+      );
+    } catch {
+      // ignore
+    }
   };
 
-  // ✅ 启动 SSE 流（替换原来的 runscript POST）
   const handleFormSubmit = async (data: any) => {
     // 重置计时
     setElapsedMs(0);
@@ -72,18 +106,9 @@ const App: React.FC = () => {
     return m > 0 ? `${m}m${s.toFixed(2)}s` : `${s.toFixed(2)}s`;
   };
 
-  useEffect(() => {
-    if (!selectedScript && strategies.length) {
-      setSelectedScript(strategies[0]);
-    }
-  }, [strategies, selectedScript]);
-
-  if (loadingStrategies) {
-    return <p className="p-6">{t('common.loading')}</p>;
-  }
-  if (errorStrategies) {
+  if (loadingStrategies) return <p className="p-6">{t('common.loading')}</p>;
+  if (errorStrategies)
     return <p className="p-6 text-red-500">{errorStrategies}</p>;
-  }
 
   return (
     <div className="flex h-screen">
@@ -114,7 +139,8 @@ const App: React.FC = () => {
               <ScriptForm
                 selectedScript={selectedScript}
                 onSubmit={handleFormSubmit}
-                loading={running}
+                onStop={stop}
+                running={running}
               />
             </div>
 
@@ -127,7 +153,7 @@ const App: React.FC = () => {
               {running ? (
                 <div className="flex items-center justify-center">
                   <svg
-                    className="animate-spin h-5 w-5 mr-3 text-gray-500"
+                    className="animate-spin h-10 w-10 mr-3 text-gray-500"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -143,25 +169,19 @@ const App: React.FC = () => {
                     <path
                       className="opacity-75"
                       fill="currentColor"
-                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                      d="M4 12a 8 8 0 018-8v4a4 4 0 00-4 4H4z"
                     />
                   </svg>
                   <p>{t('common.loading')}</p>
-                  <button
-                    className="ml-4 px-3 py-1 border rounded"
-                    onClick={stop}
-                  >
-                    Stop
-                  </button>
                 </div>
               ) : null}
 
-              {/* ✅ Logs 移到这里，贴着“分析中/Stop”下面 */}
+              {/* Logs */}
               <div className="mt-3">
                 <LogsPanel logs={logs} running={running} />
               </div>
 
-              {/* 结果/错误 */}
+              {/* Result / Error */}
               {error ? (
                 <p className="text-red-500 mt-3">
                   {t('common.error')}: {error}

@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from services.script_manager import run_script_stream
 from sse_starlette.sse import EventSourceResponse
+from tutorials_wrapper.utils import _parse_params
 
 app = FastAPI(
     title="FinRobot API",
@@ -50,9 +51,8 @@ async def run_script_stream_endpoint(
     前端可用 EventSource 直接接收。
     """
     try:
-        parsed_params: Dict[str, Any] = (
-            json.loads(params) if isinstance(params, str) and params else {}
-        )
+        parsed_params: Dict[str, Any] = _parse_params(params)
+
     except Exception:
         parsed_params = {}
 
@@ -117,14 +117,29 @@ def extract_params_from_file(py_path: Path) -> Dict[str, Dict[str, Any]]:
     """
     text = py_path.read_text(encoding="utf-8", errors="ignore")
     pattern = re.compile(
-        r"""(\w+)\s*=\s*params\.get\(\s*['"](\w+)['"]\s*,\s*['"]([^'"]*)['"]\s*\)""",
-        re.MULTILINE,
+        r"""
+        (\w+)\s*=\s*params\.get\(\s*
+        (['"])(\w+)\2                      # key
+        \s*,\s*
+        (?:
+            "((?:[^"\\]|\\.)*)"            # 默认值（双引号）
+          | '((?:[^'\\]|\\.)*)'            # 默认值（单引号）
+        )
+        \s*\)
+        """,
+        re.MULTILINE | re.VERBOSE,
     )
 
+    DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
     out: Dict[str, Dict[str, Any]] = {}
-    for full_var, key, default in pattern.findall(text):
+    for full_var, _q_key, key, default_dq, default_sq in pattern.findall(text):
+        default = default_dq or default_sq
+        default = default.encode("utf-8").decode("unicode_escape")
+
         _type = "date" if DATE_PATTERN.match(default) else "string"
         out[key] = {"type": _type, "defaultValue": default}
+
     return out
 
 
