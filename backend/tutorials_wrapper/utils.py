@@ -83,25 +83,47 @@ def _normalize_msg(m: Any, conv_name: str | None) -> Dict[str, Any]:
 
 def extract_conversation(user_agent: Any) -> List[Dict[str, Any]]:
     """
-    提取 user_agent 中的全部对话消息，不区分 assistant。
+    提取 user_agent 中的全部对话消息（不区分 assistant）。
+    过滤：content 为空（None/空串/仅空白）或等于 'TERMINATE' 的记录。
     返回：[{role, name, tool_name, content}, ...]
     """
     out: List[Dict[str, Any]] = []
 
-    # 1) chat_messages：可能是 {AssistantObj|str: list[messages]}
+    # 统一收集两个来源
+    sources = []
     cm = getattr(user_agent, "chat_messages", None)
     if isinstance(cm, dict) and cm:
-        for k, msgs in cm.items():
-            conv_name = k if isinstance(k, str) else getattr(k, "name", None)
-            for m in msgs or []:
-                out.append(_normalize_msg(m, conv_name))
+        # key 可能是 str 或对象（取其 name）
+        sources.append(
+            (cm, lambda k: k if isinstance(k, str) else getattr(k, "name", None))
+        )
 
-    # 2) message_history：{name(str): list[messages]}
     mh = getattr(user_agent, "message_history", None)
     if isinstance(mh, dict) and mh:
-        for name, msgs in mh.items():
-            for m in msgs or []:
-                out.append(_normalize_msg(m, name))
+        sources.append((mh, lambda k: k))
+
+    for store, key_to_name in sources:
+        for k, msgs in store.items():
+            if not msgs:
+                continue
+            conv_name = key_to_name(k)
+            for m in msgs:
+                msg = _normalize_msg(m, conv_name)  # 假定已存在
+                content = msg.get("content")
+
+                # 处理常见形态：None / str / list（有些框架把多段内容放 list）
+                if content is None:
+                    continue
+                if isinstance(content, str):
+                    s = content.strip()
+                    if not s or s.upper() == "TERMINATE":
+                        continue
+                elif isinstance(content, list):
+                    # 全部元素为假值则跳过（[], [""], [None], 等）
+                    if not any(bool(x) for x in content):
+                        continue
+                # 其他类型按有值处理
+                out.append(msg)
 
     return out
 

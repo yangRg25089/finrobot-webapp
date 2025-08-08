@@ -59,6 +59,13 @@ const App: React.FC = () => {
     }
   };
 
+  const formatElapsed = (ms: number) => {
+    const totalSec = ms / 1000;
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec - m * 60;
+    return m > 0 ? `${m}m${s.toFixed(2)}s` : `${s.toFixed(2)}s`;
+  };
+
   useEffect(() => {
     if (!selectedScript && strategies.length) {
       setSelectedScript(strategies[0]);
@@ -85,30 +92,32 @@ const App: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-[700px] max-h-screen overflow-hidden">
         {/* Topbar */}
         <Topbar
           onUserClick={() => alert('User clicked')}
           onscriptSwitch={() => setIsSidebarOpen(!isSidebarOpen)}
         />
 
-        {/* Content Area */}
-        <div className="flex-1 flex flex-col p-4 gap-4 bg-gray-100 items-center">
-          {/* Script Form */}
-          <div>
-            <ScriptForm
-              selectedScript={selectedScript}
-              onSubmit={handleFormSubmit}
-              loading={loading} // ← 传给表单，提交时禁用按钮
-            />
-          </div>
+        {/* Content Area → 现在作为共同滚动容器 */}
+        <div className="flex-1 min-h-0 overflow-y-auto bg-gray-100">
+          {/* 统一宽度与内边距，两个区域放一起 */}
+          <div className="max-w-[1500px] mx-auto w-full p-4 flex flex-col gap-4 items-center">
+            {/* Script Form */}
+            <div>
+              <ScriptForm
+                selectedScript={selectedScript}
+                onSubmit={handleFormSubmit}
+                loading={loading}
+              />
+            </div>
 
-          {/* Result Viewer */}
-          <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
-            <div className="max-w-[1500px] mx-auto w-full">
+            {/* Result Viewer（不再有自身的纵向滚动） */}
+            <div className="w-full min-w-0">
               <p className="text-gray-500 w-100">
-                {t('common.elapsedTime')}: {(elapsedMs / 1000).toFixed(2)}s
+                {t('common.elapsedTime')}: {formatElapsed(elapsedMs)}
               </p>
+
               {loading ? (
                 <div className="flex items-center justify-center">
                   <svg
@@ -124,12 +133,12 @@ const App: React.FC = () => {
                       r="10"
                       stroke="currentColor"
                       strokeWidth="4"
-                    ></circle>
+                    />
                     <path
                       className="opacity-75"
                       fill="currentColor"
                       d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                    ></path>
+                    />
                   </svg>
                   <p>{t('common.loading')}</p>
                 </div>

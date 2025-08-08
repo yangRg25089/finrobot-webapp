@@ -25,15 +25,21 @@ const ResultViewer: React.FC<ResultViewerProps> = ({ response }) => {
     return <p className="text-gray-500">{t('common.noChart')}</p>;
   }
 
+  const base =
+    (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000';
+
+  const images: string[] = Array.isArray(response.result_images)
+    ? response.result_images
+    : [];
+
   return (
     <>
+      <h2 className="text-gray-800 font-bold">{t('common.summary')} :</h2>
       {response.result
         .filter((item: any) => hasContent(item?.content))
         .map((item: any, idx: number) => (
           <div key={idx} className="p-4 bg-white shadow rounded mb-4 min-w-0">
-            <h2 className="text-gray-800 font-bold">
-              {t('common.summary')} {idx + 1}:
-            </h2>
+            <h2 className="text-gray-800 font-bold">{item.name ?? ''}:</h2>
 
             {/* 容器：横向可滚动、宽度不超父级 */}
             <div className="overflow-x-auto max-w-full">
@@ -63,6 +69,25 @@ const ResultViewer: React.FC<ResultViewerProps> = ({ response }) => {
             </div>
           </div>
         ))}
+
+      <div className="gap-3">
+        {images.map((url) => (
+          <a
+            key={url}
+            href={`${base}${url}`}
+            target="_blank"
+            rel="noreferrer"
+            className="block w-full"
+          >
+            <img
+              src={`${base}${url}`}
+              alt="result"
+              className="w-full h-auto rounded border block"
+              loading="lazy"
+            />
+          </a>
+        ))}
+      </div>
     </>
   );
 };
