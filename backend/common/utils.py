@@ -336,3 +336,149 @@ def extract_params_from_file(py_path: Path) -> Dict[str, Dict[str, Any]]:
         out[key] = {"type": _type, "defaultValue": _value}
 
     return out
+
+
+# =========================
+# Script output utilities
+# =========================
+
+
+def create_output_directory(base_dir: Path, script_name: str) -> Path:
+    """
+    Create a timestamped output directory for script results.
+
+    Args:
+        base_dir: Base directory (usually backend directory)
+        script_name: Name of the script (e.g., 'agent_rag_earnings_call_sec_filings')
+
+    Returns:
+        Path to the created output directory
+    """
+    from datetime import datetime
+
+    date = datetime.now().strftime("%Y%m%d")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    folder_name = f"{script_name}_{timestamp}"
+    result_path = base_dir / "static" / "output" / date / folder_name
+    result_path.mkdir(parents=True, exist_ok=True)
+    return result_path
+
+
+def save_output_files(
+    output_path: Path,
+    script_name: str,
+    params: Dict[str, Any],
+    messages: List[Any],
+    queries: Optional[List[str]] = None,
+    additional_data: Optional[Dict[str, Any]] = None,
+) -> None:
+    """
+    Save script output files in a standardized format.
+
+    Args:
+        output_path: Directory to save files
+        script_name: Name of the script
+        params: Script parameters
+        messages: Chat messages or results
+        queries: List of queries (if applicable)
+        additional_data: Additional data to save
+    """
+    from datetime import datetime
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+
+    # Prepare output data
+    output_data = {
+        "script_name": script_name,
+        "timestamp": timestamp,
+        "parameters": params,
+        "messages": [],
+        "queries": queries or [],
+        "additional_data": additional_data or {},
+    }
+
+    # Process messages
+    for i, message in enumerate(messages):
+        if hasattr(message, "chat_history") and message.chat_history:
+            # AutoGen chat result
+            chat_data = {"message_index": i, "chat_history": []}
+            for msg in message.chat_history:
+                if isinstance(msg, dict):
+                    chat_data["chat_history"].append(msg)
+                else:
+                    chat_data["chat_history"].append(str(msg))
+            output_data["messages"].append(chat_data)
+        elif isinstance(message, dict):
+            # Direct dictionary message
+            output_data["messages"].append({"message_index": i, "content": message})
+        else:
+            # String or other format
+            output_data["messages"].append(
+                {"message_index": i, "content": str(message)}
+            )
+
+    # Save JSON file
+    json_file = output_path / "results.json"
+    with open(json_file, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+
+    # Save summary text file
+    summary_file = output_path / "summary.txt"
+    with open(summary_file, "w", encoding="utf-8") as f:
+        f.write(f"{script_name.replace('_', ' ').title()} Results\n")
+        f.write("=" * 50 + "\n\n")
+        f.write(f"Timestamp: {timestamp}\n")
+        f.write(f"Parameters: {json.dumps(params, indent=2)}\n\n")
+
+        if queries:
+            f.write(f"Queries ({len(queries)}):\n")
+            for i, query in enumerate(queries, 1):
+                f.write(f"{i}. {query}\n")
+            f.write("\n")
+
+        f.write(f"Messages: {len(messages)} items\n")
+        f.write(f"Output Directory: {output_path}\n\n")
+
+        if additional_data:
+            f.write("Additional Data:\n")
+            for key, value in additional_data.items():
+                f.write(f"- {key}: {value}\n")
+
+    print(f"Results saved to: {output_path}")
+
+
+def get_script_result(
+    messages: List[Any],
+    output_path: Optional[Path] = None,
+    error: Optional[str] = None,
+    preview: Optional[str] = None,
+    additional_data: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Create a standardized script result dictionary.
+
+    Args:
+        messages: List of messages or results
+        output_path: Path where output files are saved
+        error: Error message (if any)
+        preview: Preview data (e.g., base64 image)
+        additional_data: Additional data to include
+
+    Returns:
+        Standardized result dictionary
+    """
+    result = {"result": messages}
+
+    if output_path:
+        result["output_path"] = str(output_path)
+
+    if error:
+        result["error"] = error
+
+    if preview:
+        result["preview"] = preview
+
+    if additional_data:
+        result.update(additional_data)
+
+    return result

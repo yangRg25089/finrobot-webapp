@@ -3,13 +3,13 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from common.utils import _parse_params, extract_params_from_file
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from services.script_manager import run_script_stream
 from sse_starlette.sse import EventSourceResponse
-from tutorials_wrapper.utils import _parse_params, extract_params_from_file
 
 app = FastAPI(
     title="FinRobot API",

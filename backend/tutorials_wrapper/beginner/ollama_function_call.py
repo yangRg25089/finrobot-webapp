@@ -1,9 +1,9 @@
 import autogen
 from autogen import AssistantAgent, UserProxyAgent
+from common.utils import build_lang_directive, extract_conversation, get_script_result
 from finrobot.data_source import YFinanceUtils
 from finrobot.utils import get_current_date, register_keys_from_json
 from pyexpat.errors import messages
-from tutorials_wrapper.utils import build_lang_directive, extract_conversation
 
 
 def run(params: dict, lang: str) -> dict:
@@ -66,4 +66,4 @@ def run(params: dict, lang: str) -> dict:
 
     messages = extract_conversation(user_proxy)
 
-    return {"result": messages}
+    return get_script_result(messages=messages)

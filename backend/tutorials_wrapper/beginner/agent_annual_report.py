@@ -6,13 +6,14 @@ import os
 from textwrap import dedent
 
 import autogen
-from finrobot.agents.workflow import SingleAssistantShadow
-from finrobot.utils import register_keys_from_json
-from tutorials_wrapper.utils import (
+from common.utils import (
     build_lang_directive,
     extract_all,
+    get_script_result,
     pdf_first_page_to_base64,
 )
+from finrobot.agents.workflow import SingleAssistantShadow
+from finrobot.utils import register_keys_from_json
 
 # After importing all the necessary packages and functions, we also need the config for OpenAI & SecApi & FMPApi here.
 # - for openai configuration, rename OAI_CONFIG_LIST_sample to OAI_CONFIG_LIST and replace the api keys
@@ -78,16 +79,15 @@ def run(params: dict, lang: str) -> dict:
         reverse=True,
     )
     if not pdf_files:
-        return {
-            "result": messages,
-            "error": "PDF not generated. Check agent execution.",
-        }
+        return get_script_result(
+            messages=messages, error="PDF not generated. Check agent execution."
+        )
 
     latest_pdf = pdf_files[0]
     preview_b64 = pdf_first_page_to_base64(latest_pdf)
 
-    return {
-        "result": messages,
-        "preview": preview_b64,
-        "pdf_path": str(latest_pdf),
-    }
+    return get_script_result(
+        messages=messages,
+        preview=preview_b64,
+        additional_data={"pdf_path": str(latest_pdf)},
+    )

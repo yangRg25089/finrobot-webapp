@@ -7,9 +7,9 @@
 # This is a default bot, for more configurable demo, see [advanced tutorial](../tutorials_advanced/agent_fingpt_forecaster.ipynb)
 
 import autogen
+from common.utils import build_lang_directive, extract_all, get_script_result
 from finrobot.agents.workflow import SingleAssistant
 from finrobot.utils import get_current_date, register_keys_from_json
-from tutorials_wrapper.utils import build_lang_directive, extract_all
 
 # After importing all the necessary packages and functions, we instantiate a SingleAssistant workflow "Market_Analyst".
 # We also need the config for OpenAI & Finnhub here.
@@ -74,4 +74,4 @@ def run(params: dict, lang: str) -> dict:
     up.initiate_chat(aa, message=prompt)
 
     messages = extract_all(up)
-    return {"result": messages}
+    return get_script_result(messages=messages)

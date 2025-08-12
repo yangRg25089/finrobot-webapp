@@ -3,8 +3,8 @@ from datetime import datetime
 from pathlib import Path
 
 from autogen import AssistantAgent, UserProxyAgent
-from tutorials_wrapper.runtime import guard_run
-from tutorials_wrapper.utils import build_lang_directive, extract_conversation
+from common.runtime import guard_run
+from common.utils import build_lang_directive, extract_conversation, get_script_result
 
 
 def _has_image(work_dir: Path) -> bool:
@@ -135,15 +135,19 @@ def run(params: dict, lang: str) -> dict:
             ),
             None,
         )
-        return {
-            "result": messages,
+        return get_script_result(
+            messages=messages,
+            error=last_err or "No image generated.",
+            additional_data={
+                "result_folder": web_folder,
+                "result_images": images,
+            },
+        )
+
+    return get_script_result(
+        messages=messages,
+        additional_data={
             "result_folder": web_folder,
             "result_images": images,
-            "error": last_err or "No image generated.",
-        }
-
-    return {
-        "result": messages,
-        "result_folder": web_folder,
-        "result_images": images,
-    }
+        },
+    )

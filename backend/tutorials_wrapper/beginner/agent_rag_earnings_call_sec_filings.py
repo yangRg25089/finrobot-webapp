@@ -11,16 +11,16 @@ Notes:
 - Entry point stays: run(params: dict, lang: str) -> dict
 """
 
-# %% [markdown]
-# <a href="https://colab.research.google.com/github/Athe-kunal/FinRobot/blob/master/tutorials_beginner/agent_rag_earnings_call_sec_filings.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-
-# %%
-# !git clone https://github.com/Athe-kunal/finance_llm_data.git
-
-# %%
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+from common.utils import (
+    build_lang_directive,
+    create_output_directory,
+    get_script_result,
+    save_output_files,
+)
 
 
 def _cd_finance_llm_data(base_dir: Path) -> Path:
@@ -80,19 +80,21 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
       - include_amends: bool (default True)
       - build_marker_pdf: bool (default False)  # the PDF extraction is slow in notebook
       - from_markdown: bool (default True)
-      - openai_api_key: str (optional)
 
     Returns: {"result": messages}
     """
     # -----------------------------
     # Params & working dir setup
     # -----------------------------
-    ticker = params.get("ticker", "GOOG")
-    year = params.get("year", "2023")
+    ticker = params.get("ticker", "IBM")
+    year = params.get("year", "2024")
     filing_types = params.get("filing_types", ["10-K", "10-Q"])
     include_amends = params.get("include_amends", True)
     build_marker_pdf = params.get("build_marker_pdf", False)
     FROM_MARKDOWN = params.get("from_markdown", True)
+
+    _AI_model = params.get("_AI_model", "gemini-2.5-flash")
+    lang_snippet = build_lang_directive(lang)
 
     base_dir = Path.cwd()
     work_dir = _cd_finance_llm_data(base_dir)
@@ -156,19 +158,35 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
     )
 
     earnings_calls_split_docs = text_splitter.split_documents(earnings_docs)
+
+    # Generate IDs for documents
+    import uuid
+
+    # Create database directory path
+    db_base_path = base_dir / "static" / "db"
+    db_base_path.mkdir(parents=True, exist_ok=True)
+
+    doc_ids = [str(uuid.uuid4()) for _ in earnings_calls_split_docs]
+
     earnings_call_db = Chroma.from_documents(
         earnings_calls_split_docs,
         emb_fn,
-        persist_directory="./earnings-call-db",
+        persist_directory=str(db_base_path / "earnings-call-db"),
         collection_name="earnings_call",
+        ids=doc_ids,
     )
 
     sec_filings_split_docs = text_splitter.split_documents(sec_data)
+
+    # Generate IDs for documents
+    sec_doc_ids = [str(uuid.uuid4()) for _ in sec_filings_split_docs]
+
     sec_filings_unstructured_db = Chroma.from_documents(
         sec_filings_split_docs,
         emb_fn,
-        persist_directory="./sec-filings-db",
+        persist_directory=str(db_base_path / "sec-filings-db"),
         collection_name="sec_filings",
+        ids=sec_doc_ids,
     )
 
     # -----------------------------
@@ -204,12 +222,21 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
             md_header_docs.metadata.update({"filing_type": md_content[1]})
         sec_markdown_docs.extend(md_header_splits)
 
-    sec_filings_md_db = Chroma.from_documents(
-        sec_markdown_docs,
-        emb_fn,
-        persist_directory="./sec-filings-md-db",
-        collection_name="sec_filings_md",
-    )
+    # Only create the database if we have documents
+    if sec_markdown_docs:
+        # Generate IDs for markdown documents
+        md_doc_ids = [str(uuid.uuid4()) for _ in sec_markdown_docs]
+
+        sec_filings_md_db = Chroma.from_documents(
+            sec_markdown_docs,
+            emb_fn,
+            persist_directory=str(db_base_path / "sec-filings-md-db"),
+            collection_name="sec_filings_md",
+            ids=md_doc_ids,
+        )
+    else:
+        print("No SEC markdown documents found, skipping markdown database creation")
+        sec_filings_md_db = None
 
     # -----------------------------
     # CHAT WITH DATA USING AUTOGEN
@@ -293,9 +320,12 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
             sec_form_name in sec_form_names
         ), f"The search form type should be in {sec_form_names}"
 
-        relevant_docs = sec_filings_md_db.similarity_search(
-            question, k=3, filter={"filing_type": {"$eq": sec_form_name}}
-        )
+        if sec_filings_md_db is not None:
+            relevant_docs = sec_filings_md_db.similarity_search(
+                question, k=3, filter={"filing_type": {"$eq": sec_form_name}}
+            )
+        else:
+            relevant_docs = []
         relevant_section_text = ""
         for relevant_text in relevant_docs:
             relevant_section_text += relevant_text.page_content + "\n\n"
@@ -335,11 +365,7 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
     # -----------------------------
     from autogen import ConversableAgent, register_function
 
-    # OPENAI API KEY (optional override)
-    if params.get("openai_api_key"):
-        os.environ["OPENAI_API_KEY"] = params["openai_api_key"]
-
-    llm_config = {"model": "gpt-4-turbo"}
+    llm_config = {"model": _AI_model}
 
     user_proxy = ConversableAgent(
         name="Planner Admin",
@@ -394,5 +420,30 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
         )
         messages.append(chat_result)
 
-    # Return in the project's expected shape
-    return {"result": messages}
+    # Save output files using common utilities
+    result_path = create_output_directory(
+        base_dir, "agent_rag_earnings_call_sec_filings"
+    )
+
+    # Prepare additional data
+    additional_data = {
+        "ticker": ticker,
+        "year": year,
+        "filing_types": filing_types,
+        "include_amends": include_amends,
+        "earnings_documents": len(earnings_docs) if "earnings_docs" in locals() else 0,
+        "sec_documents": len(sec_data) if "sec_data" in locals() else 0,
+    }
+
+    # Save output files
+    save_output_files(
+        output_path=result_path,
+        script_name="agent_rag_earnings_call_sec_filings",
+        params=params,
+        messages=messages,
+        queries=queries,
+        additional_data=additional_data,
+    )
+
+    # Return standardized result
+    return get_script_result(messages=messages, output_path=result_path)

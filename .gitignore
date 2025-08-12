@@ -64,6 +64,8 @@ backend/static/**
 backend/OAI_CONFIG_LIST
 backend/config_api_keys
 backend/finance_llm_data/
+backend/test/
+
 
 # if you generate notebooks’ checkpoints
 **/.ipynb_checkpoints/

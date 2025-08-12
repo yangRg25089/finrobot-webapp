@@ -7,8 +7,8 @@
 # For detailed implementation, refer to [rag function](../finrobot/functional/rag.py) and [rag workflow](../finrobot/agents/workflow.py) of `SingleAssistantRAG`
 
 import autogen
+from common.utils import build_lang_directive, extract_all, get_script_result
 from finrobot.agents.workflow import SingleAssistantRAG
-from tutorials_wrapper.utils import build_lang_directive, extract_all
 
 # for openai configuration, rename OAI_CONFIG_LIST_sample to OAI_CONFIG_LIST and replace the api keys
 
@@ -129,4 +129,4 @@ def run(params: dict, lang: str) -> dict:
     up.initiate_chat(aa, message=prompt)
 
     messages2 = extract_all(up)
-    return {"result": messages1 + messages2}
+    return get_script_result(messages=messages1 + messages2)
