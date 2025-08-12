@@ -26,6 +26,10 @@ const translations = {
       question: '質問',
       question1: '質問 1',
       question2: '質問 2',
+      include_amends: '修正版を含める',
+      build_marker_pdf: 'PDFを生成',
+      from_markdown: 'Markdownから生成',
+      filing_types: '提出書類の種類',
     },
     descriptions: {
       agent_annual_report:

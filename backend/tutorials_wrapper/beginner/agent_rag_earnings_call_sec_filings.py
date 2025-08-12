@@ -1,212 +1,398 @@
-"""
-Financial-RAG demo  ·  Earnings calls + SEC filings
----------------------------------------------------
-主要步骤
-1. 读取 earnings call、SEC Filings（两种格式）
-2. 构建三套向量库：earnings_call / sec_filings_text / sec_filings_markdown
-3. 注册三类查询函数到 AutoGen Tool Proxy
-4. 通过 Planner-Tool 两个代理实现智能检索
-5. 返回完整对话历史，方便前端渲染
-"""
-
 from __future__ import annotations
 
-import base64
-import json
+"""
+Refactor of the notebook `agent_rag_earnings_call_sec_filings.ipynb` into a
+single Python module compatible with this project's script entry pattern.
+
+Notes:
+- Cell boundaries are preserved via section comments to keep left-right diffs small.
+- Shell commands (git/pip/apt) are kept as comments. Execute them externally if needed.
+- Default values match the notebook and can be overridden via `params`.
+- Entry point stays: run(params: dict, lang: str) -> dict
+"""
+
+# %% [markdown]
+# <a href="https://colab.research.google.com/github/Athe-kunal/FinRobot/blob/master/tutorials_beginner/agent_rag_earnings_call_sec_filings.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+
+# %%
+# !git clone https://github.com/Athe-kunal/finance_llm_data.git
+
+# %%
 import os
 from pathlib import Path
-from typing import Any, Dict, List
-
-import autogen
-from autogen import ConversableAgent, register_function
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_chroma import Chroma
-from langchain_community.embeddings.sentence_transformer import (
-    SentenceTransformerEmbeddings,
-)
-
-# ---------- 常量 ----------
-PROJECT_ROOT = Path(__file__).resolve().parent  # 调整到你的根目录
-DATA_REPO = PROJECT_ROOT / "finance_llm_data"  # ← 确保已 git clone
-OUTPUT_DIR = DATA_REPO / "output"  # 生成的 pdf / md 会在这里
-
-EMBED_FN = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-TXT_SPLITTER = RecursiveCharacterTextSplitter(
-    chunk_size=1024, chunk_overlap=100, length_function=len
-)
+from typing import Any, Dict, List, Tuple
 
 
-# ---------- 工具函数 ----------
-def ensure_repo() -> None:
-    if not DATA_REPO.exists():
-        raise FileNotFoundError(
-            f"{DATA_REPO} 不存在，请先 `git clone https://github.com/Athe-kunal/finance_llm_data.git`"
-        )
-
-
-def build_vector_db(docs, path: Path, name: str):
-    """若已持久化，则直接加载；否则新建并保存"""
-    if path.exists():
-        return Chroma(
-            persist_directory=str(path),
-            embedding_function=EMBED_FN,
-            collection_name=name,
-        )
-    return Chroma.from_documents(
-        docs,
-        EMBED_FN,
-        persist_directory=str(path),
-        collection_name=name,
-    )
-
-
-# ---------- 核心入口 ----------
-def run(params: Dict[str, Any]) -> Dict[str, Any]:
+def _cd_finance_llm_data(base_dir: Path) -> Path:
+    """Align with the notebook's `os.chdir("finance_llm_data")` step.
+    Tries common relative locations; falls back to creating a working folder.
     """
-    params:
-      {
-        "ticker": "GOOG",
-        "year"  : "2023",
-        "lang"  : "en" | "zh" | ...
-      }
+    candidates = [
+        base_dir / "finance_llm_data",
+        base_dir.parent / "finance_llm_data",
+        base_dir,
+    ]
+    for p in candidates:
+        if (p / "finance_data.py").exists():
+            os.chdir(p)
+            return p
+    # As a last resort, stay where we are (caller should ensure path)
+    os.chdir(base_dir)
+    return base_dir
+
+
+# %% [markdown]
+# ## INSTALL THE REQUIRED PACKAGES
+# If you are in google colab, make sure to restart run-time
+
+# %%
+# !pip install -r requirements.txt
+
+# %%
+# The original notebook changed directory again:
+# os.chdir("/tutorials_beginner/finance_llm_data")
+# We will keep current working directory after `_cd_finance_llm_data`.
+
+# %%
+# from finance_data import get_data  # imported inside run() after chdir
+
+# %% [markdown]
+# ## The wkhtmltopdf wheel will help in converting html to pdfs
+
+# %%
+# %%capture
+# !sudo apt-get install wkhtmltopdf
+
+
+# -----------------------------
+# Entry point
+# -----------------------------
+
+
+def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
     """
-    ensure_repo()
+    Script entry compatible with this project.
 
-    # ------------------------------------------------------------
-    # 1. 获取数据（调用 finance_llm_data.get_data）
-    # ------------------------------------------------------------
-    from finance_llm_data.finance_data import (
-        get_data,
-    )  # noqa: E402 (local import after env check)
+    params (overrides):
+      - ticker: str (default 'GOOG')
+      - year: str (default '2023')
+      - filing_types: List[str] (default ['10-K','10-Q'])
+      - include_amends: bool (default True)
+      - build_marker_pdf: bool (default False)  # the PDF extraction is slow in notebook
+      - from_markdown: bool (default True)
+      - openai_api_key: str (optional)
 
+    Returns: {"result": messages}
+    """
+    # -----------------------------
+    # Params & working dir setup
+    # -----------------------------
     ticker = params.get("ticker", "GOOG")
     year = params.get("year", "2023")
-    filing_types = ["10-K", "10-Q"]
+    filing_types = params.get("filing_types", ["10-K", "10-Q"])
+    include_amends = params.get("include_amends", True)
+    build_marker_pdf = params.get("build_marker_pdf", False)
+    FROM_MARKDOWN = params.get("from_markdown", True)
 
-    # Earnings call
+    base_dir = Path.cwd()
+    work_dir = _cd_finance_llm_data(base_dir)
+
+    # Deferred imports that depend on CWD
+    from finance_data import get_data  # type: ignore
+
+    # -----------------------------
+    # EARNINGS DATA
+    # -----------------------------
     (
         earnings_docs,
-        quarter_vals,
-        spk_q1,
-        spk_q2,
-        spk_q3,
-        spk_q4,
+        earnings_call_quarter_vals,
+        speakers_list_1,
+        speakers_list_2,
+        speakers_list_3,
+        speakers_list_4,
     ) = get_data(ticker=ticker, year=year, data_source="earnings_calls")
-    quarter_speakers = {"Q1": spk_q1, "Q2": spk_q2, "Q3": spk_q3, "Q4": spk_q4}
 
-    # Unstructured SEC filings
-    sec_docs, sec_form_names = get_data(
+    # -----------------------------
+    # UNSTRUCTURED SEC DATA (TEXT-ONLY)
+    # -----------------------------
+    sec_data, sec_form_names = get_data(
         ticker=ticker,
         year=year,
         data_source="unstructured",
-        include_amends=True,
+        include_amends=include_amends,
         filing_types=filing_types,
     )
 
-    # Markdown SEC filings
-    # （已有 get_data 生成的 markdown 存放在 output/SEC_EDGAR_FILINGS_MD）
-    md_dir = OUTPUT_DIR / f"SEC_EDGAR_FILINGS_MD/{ticker}-{year}"
-    md_docs = []
-    if md_dir.exists():
-        from langchain_text_splitters import MarkdownHeaderTextSplitter
-
-        hdr_split = MarkdownHeaderTextSplitter(
-            headers_to_split_on=[("#", "H1"), ("##", "H2"), ("###", "H3")]
+    # -----------------------------
+    # MARKER PDF EXTRACTION (optional; slow)
+    # -----------------------------
+    if build_marker_pdf:
+        # THE BELOW CELL TOOK ~13 MINUTES ON GOOGLE COLAB
+        get_data(
+            ticker=ticker,
+            year=year,
+            data_source="marker_pdf",
+            batch_processing=False,
+            batch_multiplier=1,
         )
-        for md_subdir in md_dir.iterdir():
-            md_path = md_subdir / f"{md_subdir.name}.md"
-            content = md_path.read_text()
-            filing_type = "-".join(md_subdir.name.split("-")[-2:])
-            docs = hdr_split.split_text(content)
-            for d in docs:
-                d.metadata.update({"filing_type": filing_type})
-            md_docs.extend(docs)
 
-    # ------------------------------------------------------------
-    # 2. 构建 / 加载向量库
-    # ------------------------------------------------------------
-    ec_db = build_vector_db(
-        TXT_SPLITTER.split_documents(earnings_docs),
-        PROJECT_ROOT / "earnings-call-db",
-        "earnings_call",
-    )
-    sec_text_db = build_vector_db(
-        TXT_SPLITTER.split_documents(sec_docs),
-        PROJECT_ROOT / "sec-filings-db",
-        "sec_filings",
-    )
-    sec_md_db = build_vector_db(
-        md_docs,
-        PROJECT_ROOT / "sec-filings-md-db",
-        "sec_filings_md",
+    # -----------------------------
+    # VECTOR DATABASE FOR RAG APPLICATIONS
+    # -----------------------------
+    # !pip install langchain-chroma -U -q
+    # !pip install sentence-transformers -q
+
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain_chroma import Chroma
+    from langchain_community.embeddings.sentence_transformer import (
+        SentenceTransformerEmbeddings,
     )
 
-    # ------------------------------------------------------------
-    # 3. 定义查询函数
-    # ------------------------------------------------------------
-    def query_earnings(question: str, quarter: str) -> str:
-        assert quarter in quarter_vals, f"quarter 必须是 {quarter_vals}"
-        relevant = ec_db.similarity_search(
-            question,
-            k=5,
-            filter={"quarter": {"$eq": quarter}},
-        )
-        return "\n\n".join([doc.page_content for doc in relevant])
+    emb_fn = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1024,
+        chunk_overlap=100,
+        length_function=len,
+    )
 
-    def query_sec(question: str, form_name: str) -> str:
-        assert form_name in sec_form_names, f"form 必须是 {sec_form_names}"
-        db = (
-            sec_md_db
-            if form_name.startswith("10-K") or "10-Q" in form_name
-            else sec_text_db
-        )
-        relevant = db.similarity_search(
+    earnings_calls_split_docs = text_splitter.split_documents(earnings_docs)
+    earnings_call_db = Chroma.from_documents(
+        earnings_calls_split_docs,
+        emb_fn,
+        persist_directory="./earnings-call-db",
+        collection_name="earnings_call",
+    )
+
+    sec_filings_split_docs = text_splitter.split_documents(sec_data)
+    sec_filings_unstructured_db = Chroma.from_documents(
+        sec_filings_split_docs,
+        emb_fn,
+        persist_directory="./sec-filings-db",
+        collection_name="sec_filings",
+    )
+
+    # -----------------------------
+    # Markdown-based SEC filings DB
+    # -----------------------------
+    from langchain.schema import Document  # noqa: F401  # kept for minimal diff
+    from langchain_text_splitters import MarkdownHeaderTextSplitter
+
+    headers_to_split_on: List[Tuple[str, str]] = [
+        ("#", "Header 1"),
+        ("##", "Header 2"),
+        ("###", "Header 3"),
+    ]
+    markdown_splitter = MarkdownHeaderTextSplitter(
+        headers_to_split_on=headers_to_split_on
+    )
+
+    markdown_dir = Path("output/SEC_EDGAR_FILINGS_MD")
+    md_content_list: List[List[str]] = []
+    tdir = markdown_dir / f"{ticker}-{year}"
+    if tdir.exists():
+        for md_dirs in os.listdir(tdir):
+            md_file_path = tdir / md_dirs / f"{md_dirs}.md"
+            if md_file_path.exists():
+                content = md_file_path.read_text(encoding="utf-8", errors="ignore")
+                md_content_list.append([content, "-".join(md_dirs.split("-")[-2:])])
+
+    sec_markdown_docs: List[Document] = []
+    for md_content in md_content_list:
+        md_header_splits = markdown_splitter.split_text(md_content[0])
+        for md_header_docs in md_header_splits:
+            # Add a extra metadata of filing type
+            md_header_docs.metadata.update({"filing_type": md_content[1]})
+        sec_markdown_docs.extend(md_header_splits)
+
+    sec_filings_md_db = Chroma.from_documents(
+        sec_markdown_docs,
+        emb_fn,
+        persist_directory="./sec-filings-md-db",
+        collection_name="sec_filings_md",
+    )
+
+    # -----------------------------
+    # CHAT WITH DATA USING AUTOGEN
+    # -----------------------------
+    # !pip install -U -q pyautogen
+
+    quarter_speaker_dict: Dict[str, List[str]] = {
+        "Q1": speakers_list_1,
+        "Q2": speakers_list_2,
+        "Q3": speakers_list_3,
+        "Q4": speakers_list_4,
+    }
+
+    # Tools kept identical to notebook (closures capture the DBs created above)
+    def query_database_earnings_call(question: str, quarter: str) -> str:
+        assert (
+            quarter in earnings_call_quarter_vals
+        ), "The quarter should be from Q1, Q2, Q3, Q4"
+
+        req_speaker_list: List[str] = []
+        quarter_speaker_list = quarter_speaker_dict[quarter]
+
+        for sl in quarter_speaker_list:
+            if sl in question or sl.lower() in question:
+                req_speaker_list.append(sl)
+        if len(req_speaker_list) == 0:
+            req_speaker_list = quarter_speaker_list
+
+        relevant_docs = earnings_call_db.similarity_search(
             question,
             k=5,
             filter={
-                "filing_type" if db is sec_md_db else "form_name": {"$eq": form_name}
+                "$and": [
+                    {"quarter": {"$eq": quarter}},
+                    {"speaker": {"$in": req_speaker_list}},
+                ]
             },
         )
-        return "\n\n".join([doc.page_content for doc in relevant])
 
-    # ------------------------------------------------------------
-    # 4. AutoGen 代理：Planner ↔ ToolProxy
-    # ------------------------------------------------------------
-    llm_cfg = {"model": "gpt-4o-mini"}
-    planner = ConversableAgent(
-        name="Planner",
-        system_message=(
-            "You are a helpful financial assistant. "
-            "Decide whether to use earnings_call_db (query_earnings) or sec_filings_db (query_sec) "
-            f"to answer. Possible SEC forms: {sec_form_names}. Quarters: {quarter_vals}. "
-            "When done, say TERMINATE."
-        ),
-        llm_config=llm_cfg,
+        speaker_releavnt_dict: Dict[str, str] = {}
+        for doc in relevant_docs:
+            speaker = doc.metadata["speaker"]
+            speaker_text = doc.page_content
+            if speaker not in speaker_releavnt_dict:
+                speaker_releavnt_dict[speaker] = speaker_text
+            else:
+                speaker_releavnt_dict[speaker] += " " + speaker_text
+
+        relevant_speaker_text = ""
+        for speaker, text in speaker_releavnt_dict.items():
+            relevant_speaker_text += speaker + ": "
+            relevant_speaker_text += text + "\n\n"
+
+        return relevant_speaker_text
+
+    def query_database_unstructured_sec(question: str, sec_form_name: str) -> str:
+        assert (
+            sec_form_name in sec_form_names
+        ), f"The search form type should be in {sec_form_names}"
+
+        relevant_docs = sec_filings_unstructured_db.similarity_search(
+            question, k=5, filter={"form_name": {"$eq": sec_form_name}}
+        )
+        relevant_section_dict: Dict[str, str] = {}
+        for doc in relevant_docs:
+            section = doc.metadata["section_name"]
+            section_text = doc.page_content
+            if section not in relevant_section_dict:
+                relevant_section_dict[section] = section_text
+            else:
+                relevant_section_dict[section] += " " + section_text
+
+        relevant_section_text = ""
+        for section, text in relevant_section_dict.items():
+            relevant_section_text += section + ": "
+            relevant_section_text += text + "\n\n"
+        return relevant_section_text
+
+    def query_database_markdown_sec(question: str, sec_form_name: str) -> str:
+        assert (
+            sec_form_name in sec_form_names
+        ), f"The search form type should be in {sec_form_names}"
+
+        relevant_docs = sec_filings_md_db.similarity_search(
+            question, k=3, filter={"filing_type": {"$eq": sec_form_name}}
+        )
+        relevant_section_text = ""
+        for relevant_text in relevant_docs:
+            relevant_section_text += relevant_text.page_content + "\n\n"
+
+        return relevant_section_text
+
+    def query_database_sec(question: str, sec_form_name: str) -> str:
+        """Unified SEC query function (toggles markdown/unstructured)"""
+        if not FROM_MARKDOWN:
+            return query_database_unstructured_sec(question, sec_form_name)
+        else:
+            return query_database_markdown_sec(question, sec_form_name)
+
+    # Build system messages (unchanged logic)
+    sec_form_system_msg = ""
+    for sec_form in sec_form_names:
+        if sec_form == "10-K":
+            sec_form_system_msg += "10-K for yearly data, "
+        elif "10-Q" in sec_form:
+            quarter = sec_form[-1]
+            sec_form_system_msg += f"{sec_form} for Q{quarter} data, "
+    sec_form_system_msg = sec_form_system_msg[:-2] if sec_form_system_msg else ""
+
+    earnings_call_system_message = ", ".join(earnings_call_quarter_vals)
+
+    system_msg = (
+        f"You are a helpful financial assistant and your task is to select the sec_filings or "
+        f"earnings_call or financial_books to best answer the question.\n"
+        f"You can use query_database_sec(question,sec_form) by passing question and relevant sec_form names like {sec_form_system_msg}\n"
+        f"or you can use query_database_earnings_call(question,quarter) by passing question and relevant quarter names with possible values {earnings_call_system_message}\n"
+        f"or you can use query_database_books(question) to get relevant documents from financial textbooks about valuation and investing philosophies. "
+        f"When you are ready to end the coversation, reply TERMINATE"
+    )
+
+    # -----------------------------
+    # Autogen agent setup (kept same)
+    # -----------------------------
+    from autogen import ConversableAgent, register_function
+
+    # OPENAI API KEY (optional override)
+    if params.get("openai_api_key"):
+        os.environ["OPENAI_API_KEY"] = params["openai_api_key"]
+
+    llm_config = {"model": "gpt-4-turbo"}
+
+    user_proxy = ConversableAgent(
+        name="Planner Admin",
+        system_message=system_msg,
+        code_execution_config=False,
+        llm_config=llm_config,
         human_input_mode="NEVER",
-        is_termination_msg=lambda m: "TERMINATE" in m.get("content", ""),
+        is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
     )
+
     tool_proxy = ConversableAgent(
-        name="ToolProxy",
-        system_message="You execute tool calls.",
+        name="Tool Proxy",
+        system_message=(
+            "Analyze the response from user proxy and decide whether the suggested "
+            "database is suitable . Answer in simple yes or no"
+        ),
         llm_config=False,
+        default_auto_reply="Please select the right database.",
         human_input_mode="ALWAYS",
-        default_auto_reply="Please choose a proper tool.",
     )
 
-    register_function(query_earnings, caller=planner, executor=tool_proxy)
-    register_function(query_sec, caller=planner, executor=tool_proxy)
+    tools_dict = {
+        "sec": [query_database_sec, "Tool to query SEC filings database"],
+        "earnings_call": [
+            query_database_earnings_call,
+            "Tool to query earnings call transcripts database",
+        ],
+    }
 
-    # ------------------------------------------------------------
-    # 5. 触发对话
-    # ------------------------------------------------------------
-    user_question = params.get(
-        "question", "What risk factors did Google mention in its latest 10-K?"
-    )
-    planner.initiate_chat(recipient=tool_proxy, message=user_question, max_turns=10)
+    for tool_name, tool in tools_dict.items():
+        register_function(
+            tool[0],
+            caller=user_proxy,
+            executor=tool_proxy,
+            name=tool[0].__name__,
+            description=tool[1],
+        )
 
-    # 提取对话全过程
-    from tutorials_wrapper.utils import extract_all
+    # -----------------------------
+    # Example queries (kept; can be overridden via params["inputs"])
+    # -----------------------------
+    queries = [
+        "What is the strategy of Google for artificial intelligence?",
+        "What are the risk factors that Google faced this year?",
+        "What was forward estimates of Google for the year 2023?",
+    ]
 
-    messages = extract_all(planner)
+    messages: List[Any] = []
+    for input_text in queries:
+        chat_result = user_proxy.initiate_chat(
+            recipient=tool_proxy, message=input_text, max_turns=10
+        )
+        messages.append(chat_result)
 
+    # Return in the project's expected shape
     return {"result": messages}

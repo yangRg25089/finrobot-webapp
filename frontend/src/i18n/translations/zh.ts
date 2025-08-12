@@ -26,6 +26,10 @@ const translations = {
       question: '问题',
       question1: '问题 1',
       question2: '问题 2',
+      include_amends: '包含修订版',
+      build_marker_pdf: '生成PDF',
+      from_markdown: '从Markdown生成',
+      filing_types: '申报类型',
     },
     descriptions: {
       agent_annual_report:

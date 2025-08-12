@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useModelList } from '../hooks/useModelList';
+import { TagInput } from './TagInput';
 
 interface ScriptFormProps {
   selectedScript: { script_name: string; folder: string; params: any } | null;
@@ -31,7 +32,26 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
     const initial: Record<string, any> = {};
     Object.entries(selectedScript.params).forEach(([key, cfg]) => {
       const paramConfig = (cfg as any) || {};
-      const def = paramConfig.defaultValue ?? '';
+      let def = paramConfig.defaultValue;
+
+      // 容错：如果后端把数组/布尔作为字符串传过来，也尽量解析一下
+      if (paramConfig.type === 'boolean') {
+        if (typeof def === 'string') def = def.toLowerCase() === 'true';
+        if (typeof def !== 'boolean') def = false;
+      } else if (paramConfig.type === 'string[]') {
+        if (Array.isArray(def)) {
+          def = def.map(String);
+        } else if (typeof def === 'string') {
+          def = def
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        } else {
+          def = [];
+        }
+      }
+
+      if (def === undefined || def === null) def = '';
       initial[key] = def;
     });
     setFormData(initial);
@@ -80,14 +100,17 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
           const type = paramConfig.type ?? 'text';
           const isModelKey = key === '_AI_model';
 
+          const label = t(`common.params.${key}`);
+
           return (
-            <div key={key} className="flex items-center mb-2">
+            <div key={key} className="flex items-center mb-3">
               <label
                 className="block text-gray-700 mr-2"
                 style={{ minWidth: 120, maxWidth: 150, width: 120 }}
               >
-                {t(`common.params.${key}`)}
+                {label}
               </label>
+
               {isModelKey ? (
                 <select
                   value={
@@ -106,9 +129,47 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
                     </option>
                   ))}
                 </select>
+              ) : type === 'boolean' ? (
+                <div className="flex items-center gap-3">
+                  <input
+                    id={`chk-${key}`}
+                    type="checkbox"
+                    checked={!!formData[key]}
+                    onChange={(e) => handleChange(key, e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <label
+                    htmlFor={`chk-${key}`}
+                    className="text-gray-700 select-none"
+                  >
+                    {formData[key] ? 'True' : 'False'}
+                  </label>
+                </div>
+              ) : type === 'string[]' ? (
+                <TagInput
+                  value={Array.isArray(formData[key]) ? formData[key] : []}
+                  onChange={(v) => handleChange(key, v)}
+                />
+              ) : type === 'date' ? (
+                <input
+                  type="date"
+                  value={formData[key] ?? ''}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  className="flex-1 p-2 border rounded"
+                />
+              ) : type === 'number' ? (
+                <input
+                  type="number"
+                  value={formData[key] ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    handleChange(key, v === '' ? '' : Number(v));
+                  }}
+                  className="flex-1 p-2 border rounded"
+                />
               ) : (
                 <input
-                  type={type}
+                  type="text"
                   value={formData[key] ?? ''}
                   onChange={(e) => handleChange(key, e.target.value)}
                   className="flex-1 p-2 border rounded"

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import base64
 import io
 import json
@@ -263,3 +264,75 @@ def _parse_params(params: Optional[str]) -> Dict[str, Any]:
     except Exception:
         pass
     return kv
+
+
+def extract_params_from_file(py_path: Path) -> Dict[str, Dict[str, Any]]:
+    """
+    扫描形如:
+        xxx = params.get("key", <default_literal>)
+    的代码，解析默认值类型与内容。
+    返回示例:
+      {
+        "company":        {"type": "string",   "defaultValue": "apple"},
+        "date":           {"type": "date",     "defaultValue": "2025-05-01"},
+        "filing_types":   {"type": "string[]", "defaultValue": ["10-K", "10-Q"]},
+        "include_amends": {"type": "boolean",  "defaultValue": True},
+        "build_marker_pdf": {"type": "boolean","defaultValue": False},
+        "from_markdown":  {"type": "boolean",  "defaultValue": True},
+      }
+    """
+    text = py_path.read_text(encoding="utf-8", errors="ignore")
+
+    # 更通用：抓取任意字面量作为默认值（包含跨行列表）
+    pattern = re.compile(
+        r"""
+        (\w+)\s*=\s*params\.get\(\s*
+        (['"])(\w+)\2              # key
+        \s*,\s*
+        (.*?)                      # default expr (non-greedy)
+        \s*\)
+        """,
+        re.VERBOSE | re.DOTALL,
+    )
+
+    DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+    def infer_type_and_value(default_expr: str) -> (str, Any):
+        default_expr = default_expr.strip()
+        # 优先用 literal_eval 只解析“安全字面量”
+        try:
+            val = ast.literal_eval(default_expr)
+            # 类型推断
+            if isinstance(val, bool):
+                return "boolean", val
+            if isinstance(val, (int, float)):
+                return "number", val
+            if isinstance(val, str):
+                return ("date" if DATE_PATTERN.match(val) else "string"), val
+            if isinstance(val, list):
+                if all(isinstance(x, str) for x in val):
+                    return "string[]", val
+                if all(isinstance(x, (int, float)) for x in val):
+                    return "number[]", val
+                return "array", val
+            if isinstance(val, dict):
+                return "object", val
+            # 其它少见字面量类型
+            return "unknown", val
+        except Exception:
+            # 兜底：处理 True/False/字符串字面量 & 其它表达式
+            if default_expr in ("True", "False"):
+                return "boolean", default_expr == "True"
+            m = re.match(r"""^(['"])(.*)\1$""", default_expr, re.DOTALL)
+            if m:
+                s = bytes(m.group(2), "utf-8").decode("unicode_escape")
+                return ("date" if DATE_PATTERN.match(s) else "string"), s
+            # 实在不是字面量，就当字符串表达式给回去
+            return "string", default_expr
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for _full_var, _q, key, default_expr in pattern.findall(text):
+        _type, _value = infer_type_and_value(default_expr)
+        out[key] = {"type": _type, "defaultValue": _value}
+
+    return out

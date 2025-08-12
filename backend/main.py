@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from services.script_manager import run_script_stream
 from sse_starlette.sse import EventSourceResponse
-from tutorials_wrapper.utils import _parse_params
+from tutorials_wrapper.utils import _parse_params, extract_params_from_file
 
 app = FastAPI(
     title="FinRobot API",
@@ -105,42 +105,6 @@ async def list_available_models():
 
 
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-
-
-def extract_params_from_file(py_path: Path) -> Dict[str, Dict[str, Any]]:
-    """
-    返回示例:
-      {
-        "company": {"type": "string", "defaultValue": "apple"},
-        "date":    {"type": "date",   "defaultValue": "2025-05-01"}
-      }
-    """
-    text = py_path.read_text(encoding="utf-8", errors="ignore")
-    pattern = re.compile(
-        r"""
-        (\w+)\s*=\s*params\.get\(\s*
-        (['"])(\w+)\2                      # key
-        \s*,\s*
-        (?:
-            "((?:[^"\\]|\\.)*)"            # 默认值（双引号）
-          | '((?:[^'\\]|\\.)*)'            # 默认值（单引号）
-        )
-        \s*\)
-        """,
-        re.MULTILINE | re.VERBOSE,
-    )
-
-    DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-
-    out: Dict[str, Dict[str, Any]] = {}
-    for full_var, _q_key, key, default_dq, default_sq in pattern.findall(text):
-        default = default_dq or default_sq
-        default = default.encode("utf-8").decode("unicode_escape")
-
-        _type = "date" if DATE_PATTERN.match(default) else "string"
-        out[key] = {"type": _type, "defaultValue": default}
-
-    return out
 
 
 @app.get("/api/tutorial-scripts")

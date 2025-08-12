@@ -59,7 +59,7 @@ def run(params: dict, lang: str) -> dict:
 
     config_list = [
         {
-            "model": "llama3",
+            "model": "qwen2.5-coder:14b",
             "base_url": "http://127.0.0.1:11434/v1/",
             "api_key": "ollama",
         }

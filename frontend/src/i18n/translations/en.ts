@@ -26,6 +26,10 @@ const translations = {
       question: 'Question',
       question1: 'Question 1',
       question2: 'Question 2',
+      include_amends: 'Include Amends',
+      build_marker_pdf: 'Build Marker PDF',
+      from_markdown: 'Generate from Markdown',
+      filing_types: 'Filing Types',
       _AI_model: 'AI model',
     },
     descriptions: {
