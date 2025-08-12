@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { buildApiUrl } from '../config/api';
 
 export type StreamEvent =
   | { type: 'stdout'; text: string }
@@ -49,16 +50,13 @@ export function useRunScriptStream() {
         esRef.current = null;
       }
 
-      const base =
-        (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000';
-
       const qs = new URLSearchParams({
         script_path: `${folder}/${scriptPath}`,
         lang,
         params: JSON.stringify(payload),
       });
 
-      const url = `${base}/api/run-script/stream?${qs.toString()}`;
+      const url = `${buildApiUrl('/api/run-script/stream')}?${qs.toString()}`;
       const es = new EventSource(url, { withCredentials: false });
       esRef.current = es;
 
@@ -167,6 +165,18 @@ export function useRunScriptStream() {
     setState((s) => ({ ...s, running: false }));
   }, []);
 
+  // 清空所有运行相关状态（用于切换脚本时）
+  const reset = useCallback(() => {
+    setState({
+      logs: [],
+      result: null,
+      error: null,
+      images: [],
+      resultFolder: null,
+      running: false,
+    });
+  }, []);
+
   // 组件卸载时清理
   useEffect(() => {
     return () => {
@@ -177,5 +187,5 @@ export function useRunScriptStream() {
     };
   }, []);
 
-  return { ...state, start, stop };
+  return { ...state, start, stop, reset };
 }

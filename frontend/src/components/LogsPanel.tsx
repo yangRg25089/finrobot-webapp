@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { SectionTitle } from './SectionTitle';
 
 export interface LogItem {
   type: 'stdout' | 'stderr';
@@ -68,7 +69,9 @@ const LogsPanel: React.FC<LogsPanelProps> = ({
   return (
     <div className="w-full">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Logs {running ? '(running...)' : ''}</h3>
+        <SectionTitle level="h3">
+          Logs {running ? '(running...)' : ''}
+        </SectionTitle>
         <div className="flex items-center gap-2">
           <label className="text-sm cursor-pointer">
             <input

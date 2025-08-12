@@ -8,8 +8,26 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-import requests
-from tenacity import retry, stop_after_attempt, wait_random_exponential
+try:
+    import requests
+    from tenacity import retry, stop_after_attempt, wait_random_exponential
+
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
+
+    # 创建占位符装饰器
+    def retry(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
+    def stop_after_attempt(*args, **kwargs):
+        pass
+
+    def wait_random_exponential(*args, **kwargs):
+        pass
 
 
 def get_api_key_from_config(key_name: str) -> str:
@@ -65,6 +83,9 @@ def get_earnings_transcript_alpha_vantage(
     quarter: str, ticker: str, year: int
 ) -> Dict[str, Any]:
     """Get the earnings transcripts using Alpha Vantage API"""
+    if not HAS_REQUESTS:
+        raise ImportError("requests module is required for this function")
+
     api_key = get_api_key_from_config("ALPHA_VANTAGE_API_KEY")
 
     # Convert quarter format (Q1 -> 2023Q1)

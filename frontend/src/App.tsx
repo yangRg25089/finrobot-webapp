@@ -17,7 +17,8 @@ const App: React.FC = () => {
     error: errorStrategies,
   } = useAnalysisApi();
   const [selectedScript, setSelectedScript] = useState<any>(null);
-  const { start, stop, logs, running, error, result } = useRunScriptStream();
+  const { start, stop, logs, running, error, result, reset } =
+    useRunScriptStream();
 
   const [elapsedMs, setElapsedMs] = useState(0);
 
@@ -72,6 +73,11 @@ const App: React.FC = () => {
   }, [strategies]);
 
   const handlescriptSelect = (script: any) => {
+    // 重置所有相关状态
+    stop(); // 停止当前运行的脚本
+    setElapsedMs(0); // 重置计时
+    reset(); // 清空结果与日志，避免 ResultViewer 残留
+
     setSelectedScript(script);
     // 3) 选择后写入 localStorage
     try {
@@ -85,6 +91,12 @@ const App: React.FC = () => {
     } catch {
       // ignore
     }
+  };
+
+  const handleResultReset = () => {
+    // 重置结果和日志
+    stop();
+    setElapsedMs(0);
   };
 
   const handleFormSubmit = async (data: any) => {
@@ -188,7 +200,12 @@ const App: React.FC = () => {
                 </p>
               ) : (
                 <div className="mt-3">
-                  <ResultViewer response={result} />
+                  <ResultViewer
+                    key={selectedScript?.script_name}
+                    response={result}
+                    scriptName={selectedScript?.script_name}
+                    running={running}
+                  />
                 </div>
               )}
             </div>

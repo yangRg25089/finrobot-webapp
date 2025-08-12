@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { API_ENDPOINTS, buildApiUrl } from '../config/api';
 
 export interface ModelInfo {
   model: string;
@@ -15,10 +16,8 @@ export const useModelList = () => {
     const fetchModels = async () => {
       setLoading(true);
       try {
-        const base =
-          (import.meta as any).env?.VITE_API_BASE_URL ??
-          'http://localhost:8000';
-        const res = await fetch(`${base}/api/models`);
+        const url = buildApiUrl(API_ENDPOINTS.models);
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         setModels(json as ModelInfo[]);

@@ -7,7 +7,11 @@
 # For detailed implementation, refer to [rag function](../finrobot/functional/rag.py) and [rag workflow](../finrobot/agents/workflow.py) of `SingleAssistantRAG`
 
 import autogen
-from common.utils import build_lang_directive, extract_all, get_script_result
+from common.utils import (
+    build_lang_directive,
+    get_script_result,
+    setup_and_chat_with_agents,
+)
 from finrobot.agents.workflow import SingleAssistantRAG
 
 # for openai configuration, rename OAI_CONFIG_LIST_sample to OAI_CONFIG_LIST and replace the api keys
@@ -75,20 +79,8 @@ def run(params: dict, lang: str) -> dict:
     prompt = f"""{question1}
         {lang_snippet}""".strip()
 
-    up = assitant.user_proxy
-    aa = assitant.assistant
-
-    if hasattr(up, "reset"):
-        up.reset()
-    if hasattr(aa, "reset"):
-        aa.reset()
-
-    if hasattr(up, "max_consecutive_auto_reply"):
-        up.max_consecutive_auto_reply = 6
-
-    up.initiate_chat(aa, message=prompt)
-
-    messages1 = extract_all(up)
+    # 使用共通方法处理第一个对话
+    messages1 = setup_and_chat_with_agents(assitant, prompt)
 
     # Here we come up with a more complex case, where we put the 10-k report of MSFT here.
     #
@@ -115,18 +107,6 @@ def run(params: dict, lang: str) -> dict:
     prompt = f"""{question2}
         {lang_snippet}""".strip()
 
-    up = assitant.user_proxy
-    aa = assitant.assistant
-
-    if hasattr(up, "reset"):
-        up.reset()
-    if hasattr(aa, "reset"):
-        aa.reset()
-
-    if hasattr(up, "max_consecutive_auto_reply"):
-        up.max_consecutive_auto_reply = 6
-
-    up.initiate_chat(aa, message=prompt)
-
-    messages2 = extract_all(up)
+    # 使用共通方法处理第二个对话
+    messages2 = setup_and_chat_with_agents(assitant, prompt)
     return get_script_result(messages=messages1 + messages2)

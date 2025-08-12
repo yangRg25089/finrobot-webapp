@@ -80,9 +80,12 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
     <div className="flex gap-8">
       {/* 说明区域 */}
       <div className="w-[33rem] max-w-[33rem] min-w-[320px] bg-blue-50 rounded shadow p-6 flex flex-col">
-        <h2 className="text-2xl font-bold mb-4 text-blue-800">
-          {t('common.scriptIntroTitle')}
+        <h2 className="text-2xl font-bold text-blue-800">
+          {selectedScript.script_name}
         </h2>
+        <h3 className="font-bold mb-4 text-blue-800">
+          {t('common.scriptIntroTitle')}
+        </h3>
         <span className="text-blue-900 text-base">{scriptDesc}</span>
       </div>
 

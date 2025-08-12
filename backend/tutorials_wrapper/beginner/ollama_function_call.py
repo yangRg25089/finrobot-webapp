@@ -1,6 +1,10 @@
 import autogen
 from autogen import AssistantAgent, UserProxyAgent
-from common.utils import build_lang_directive, extract_conversation, get_script_result
+from common.utils import (
+    build_lang_directive,
+    get_script_result,
+    setup_and_chat_with_raw_agents,
+)
 from finrobot.data_source import YFinanceUtils
 from finrobot.utils import get_current_date, register_keys_from_json
 from pyexpat.errors import messages
@@ -58,12 +62,9 @@ def run(params: dict, lang: str) -> dict:
     ]
     register_toolkits(tools, analyst, user_proxy)
 
-    user_proxy.initiate_chat(
-        analyst,
-        message=f"What is stock price available for {company} from {date} upon {get_current_date()}. Please analyze possible causes of the recent trend and predict short-term movement (e.g. next 5 trading days).Please summarize the trend and say TERMINATE when done."
-        f"{lang_snippet}",
-    )
+    # 使用共通方法处理原生 agents 对话
+    prompt = f"What is stock price available for {company} from {date} upon {get_current_date()}. Please analyze possible causes of the recent trend and predict short-term movement (e.g. next 5 trading days).Please summarize the trend and say TERMINATE when done.{lang_snippet}"
 
-    messages = extract_conversation(user_proxy)
+    messages = setup_and_chat_with_raw_agents(user_proxy, analyst, prompt)
 
     return get_script_result(messages=messages)

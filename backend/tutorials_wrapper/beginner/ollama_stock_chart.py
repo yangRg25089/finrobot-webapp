@@ -4,7 +4,13 @@ from pathlib import Path
 
 from autogen import AssistantAgent, UserProxyAgent
 from common.runtime import guard_run
-from common.utils import build_lang_directive, extract_conversation, get_script_result
+from common.utils import (
+    build_lang_directive,
+    create_llm_config,
+    create_output_directory,
+    get_script_result,
+    setup_and_chat_with_raw_agents,
+)
 
 
 def _has_image(work_dir: Path) -> bool:
@@ -55,19 +61,22 @@ def is_term_msg_factory(work_dir: Path):
 def run(params: dict, lang: str) -> dict:
     company = params.get("company", "AAPL")
     year = params.get("year", "2025")
+    _AI_model = params.get("_AI_model", "qwen2.5-coder:14b")
     lang_snippet = build_lang_directive(lang)
 
-    config_list = [
-        {
-            "model": "qwen2.5-coder:14b",
-            "base_url": "http://127.0.0.1:11434/v1/",
-            "api_key": "ollama",
-        }
-    ]
+    from pathlib import Path
+
+    current_dir = Path(__file__).resolve().parent
+    config_path = current_dir.parent.parent / "OAI_CONFIG_LIST"
+
+    # 使用共通方法创建 LLM 配置，自动适配不同模型类型
+    llm_config = create_llm_config(
+        config_path=str(config_path), model_name=_AI_model, temperature=0
+    )
 
     assistant = AssistantAgent(
         "assistant",
-        llm_config={"config_list": config_list, "temperature": 0},
+        llm_config=llm_config,
         system_message=(
             "You are a non-conversational code assistant. "
             "Do NOT greet or ask questions. "
@@ -77,11 +86,7 @@ def run(params: dict, lang: str) -> dict:
     )
 
     current_dir = Path(__file__).resolve().parent
-    date = datetime.now().strftime("%Y%m%d")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    folder_name = f"ollama_stock_chart_{timestamp}"
-    result_path = current_dir.parent.parent / "static" / "output" / date / folder_name
-    result_path.mkdir(parents=True, exist_ok=True)
+    result_path = create_output_directory()
 
     user_proxy = UserProxyAgent(
         "user_proxy",
@@ -107,9 +112,10 @@ def run(params: dict, lang: str) -> dict:
         {lang_snippet}
         """.strip()
 
-    user_proxy.initiate_chat(assistant, message=prompt, max_turns=10)
-
-    messages = extract_conversation(user_proxy)
+    # 使用共通方法处理原生 agents 对话
+    messages = setup_and_chat_with_raw_agents(
+        user_proxy, assistant, prompt, max_turns=10
+    )
 
     # 产物与可访问 URL
     static_root = (current_dir.parent.parent / "static").resolve()

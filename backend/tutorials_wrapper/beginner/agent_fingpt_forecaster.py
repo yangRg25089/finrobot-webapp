@@ -7,7 +7,12 @@
 # This is a default bot, for more configurable demo, see [advanced tutorial](../tutorials_advanced/agent_fingpt_forecaster.ipynb)
 
 import autogen
-from common.utils import build_lang_directive, extract_all, get_script_result
+from common.utils import (
+    build_lang_directive,
+    create_llm_config,
+    get_script_result,
+    setup_and_chat_with_agents,
+)
 from finrobot.agents.workflow import SingleAssistant
 from finrobot.utils import get_current_date, register_keys_from_json
 
@@ -29,16 +34,14 @@ def run(params: dict, lang: str) -> dict:
     config_path = current_dir.parent.parent / "OAI_CONFIG_LIST"
     config_api_keys_path = current_dir.parent.parent / "config_api_keys"
 
-    # Read OpenAI API keys from a JSON file
-    llm_config = {
-        "config_list": autogen.config_list_from_json(
-            str(config_path),
-            filter_dict={"model": [_AI_model]},
-        ),
-        "timeout": 120,
-        "temperature": 0,
-        "max_tokens": 1024,  # 控制生成长度
-    }
+    # 使用共通方法创建 LLM 配置，自动适配不同模型类型
+    llm_config = create_llm_config(
+        config_path=str(config_path),
+        model_name=_AI_model,
+        temperature=0,
+        timeout=120,
+        max_tokens=1024,
+    )
 
     # Register FINNHUB API keys
     register_keys_from_json(str(config_api_keys_path))
@@ -58,20 +61,11 @@ def run(params: dict, lang: str) -> dict:
         f"{lang_snippet}"
     )
 
-    up = assitant.user_proxy
-    aa = assitant.assistant
-
-    # 避免旧历史干扰
-    if hasattr(up, "reset"):
-        up.reset()
-    if hasattr(aa, "reset"):
-        aa.reset()
-
-    # 适当放大自动回复轮数，避免未收尾
-    if hasattr(up, "max_consecutive_auto_reply"):
-        up.max_consecutive_auto_reply = 6
-
-    up.initiate_chat(aa, message=prompt)
-
-    messages = extract_all(up)
+    # 使用共通方法处理对话，自动保存历史记录
+    messages = setup_and_chat_with_agents(
+        assistant_or_user_proxy=assitant,
+        prompt=prompt,
+        script_name="agent_fingpt_forecaster",
+        save_history=True,
+    )
     return get_script_result(messages=messages)

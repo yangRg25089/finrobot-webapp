@@ -8,9 +8,12 @@ from textwrap import dedent
 import autogen
 from common.utils import (
     build_lang_directive,
-    extract_all,
+    collect_generated_files,
+    create_llm_config,
+    create_output_directory,
     get_script_result,
     pdf_first_page_to_base64,
+    setup_and_chat_with_agents,
 )
 from finrobot.agents.workflow import SingleAssistantShadow
 from finrobot.utils import register_keys_from_json
@@ -32,22 +35,21 @@ def run(params: dict, lang: str) -> dict:
     current_dir = Path(__file__).resolve().parent
     config_path = current_dir.parent.parent / "OAI_CONFIG_LIST"
     config_api_keys_path = current_dir.parent.parent / "config_api_keys"
-    report_path = current_dir.parent.parent / "report"
 
-    llm_config = {
-        "config_list": autogen.config_list_from_json(
-            str(config_path),
-            filter_dict={"model": [_AI_model]},
-        ),
-        "timeout": 120,
-        "temperature": 0.5,
-        "max_tokens": 1024,
-    }
+    # 使用共通方法创建 LLM 配置，自动适配不同模型类型
+    llm_config = create_llm_config(
+        config_path=str(config_path),
+        model_name=_AI_model,
+        temperature=0.5,
+        timeout=120,
+        max_tokens=1024,
+    )
 
     register_keys_from_json(str(config_api_keys_path))
 
-    # Intermediate results will be saved in this directory
-    work_dir = str(report_path)
+    # Save output files using common utilities
+    result_path = create_output_directory()
+    work_dir = str(result_path)
     os.makedirs(work_dir, exist_ok=True)
 
     assistant = SingleAssistantShadow(
@@ -66,28 +68,34 @@ def run(params: dict, lang: str) -> dict:
         - All your file operations should be done in "{work_dir}". 
         - Display any image in the chat once generated.
         - All the paragraphs should combine between 400 and 450 words, don't generate the pdf until this is explicitly fulfilled.
+        {lang_snippet}
     """
     )
 
-    assistant.chat(prompt, use_cache=True, max_turns=50, summary_method="last_msg")
+    # 使用共通方法处理对话
+    messages = setup_and_chat_with_agents(assistant, prompt)
 
-    messages = extract_all(assistant.user_proxy)
+    # 收集所有生成的文件
+    generated_files = collect_generated_files(result_path)
 
-    pdf_files = sorted(
-        [p for p in report_path.glob("*.pdf")],
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    if not pdf_files:
-        return get_script_result(
-            messages=messages, error="PDF not generated. Check agent execution."
-        )
-
-    latest_pdf = pdf_files[0]
-    preview_b64 = pdf_first_page_to_base64(latest_pdf)
+    # 查找 PDF 文件并生成预览
+    pdf_files = [f for f in generated_files["files"] if f["path"].endswith(".pdf")]
+    preview_b64 = None
+    if pdf_files:
+        # 使用最新的 PDF 文件
+        latest_pdf_info = max(pdf_files, key=lambda x: x["modified_time"])
+        latest_pdf_path = Path(latest_pdf_info["full_path"])
+        if latest_pdf_path.exists():
+            preview_b64 = pdf_first_page_to_base64(latest_pdf_path)
 
     return get_script_result(
         messages=messages,
+        output_path=result_path,
         preview=preview_b64,
-        additional_data={"pdf_path": str(latest_pdf)},
+        additional_data={
+            "generated_files": generated_files,
+            "result_images": generated_files["image_urls"],
+            "result_files": generated_files["file_urls"],
+            "work_directory": str(result_path),
+        },
     )

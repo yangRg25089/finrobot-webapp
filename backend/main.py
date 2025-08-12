@@ -8,6 +8,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from services.history_manager import (
+    delete_conversation_history,
+    get_all_script_histories,
+    get_conversation_history,
+)
 from services.script_manager import run_script_stream
 from sse_starlette.sse import EventSourceResponse
 
@@ -144,6 +149,47 @@ async def list_tutorial_scripts() -> Dict[str, List[Dict[str, Any]]]:
     scripts_info.sort(key=lambda x: (x["folder"], x["script_name"]))
 
     return {"tutorials_wrapper": scripts_info}
+
+
+# ===== 对话历史管理 API =====
+@app.get("/api/history/{script_name}")
+async def get_script_history(script_name: str):
+    """
+    获取指定脚本的对话历史
+    """
+    try:
+        result = get_conversation_history(script_name)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/history")
+async def get_all_histories():
+    """
+    获取所有脚本的历史记录概览
+    """
+    try:
+        result = get_all_script_histories()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/history/{script_name}")
+async def delete_script_history(script_name: str, timestamp: Optional[str] = None):
+    """
+    删除指定脚本的对话历史
+
+    Args:
+        script_name: 脚本名称
+        timestamp: 可选的时间戳，如果提供则只删除特定记录
+    """
+    try:
+        result = delete_conversation_history(script_name, timestamp)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

@@ -437,9 +437,7 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
         messages.append(chat_result)
 
     # Save output files using common utilities
-    result_path = create_output_directory(
-        base_dir, "agent_rag_earnings_call_sec_filings"
-    )
+    result_path = create_output_directory()
 
     # Prepare additional data
     additional_data = {

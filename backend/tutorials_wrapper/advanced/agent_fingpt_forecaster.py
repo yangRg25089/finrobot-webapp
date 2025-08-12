@@ -4,9 +4,9 @@ from pathlib import Path
 
 import autogen
 from autogen.cache import Cache
+from common.utils import build_lang_directive, setup_and_chat_with_raw_agents
 from finrobot.data_source import FinnHubUtils, YFinanceUtils
 from finrobot.utils import get_current_date, register_keys_from_json
-from tutorials_wrapper.utils import build_lang_directive, extract_conversation
 
 
 def run(params: dict, lang: str):
@@ -82,20 +82,19 @@ def run(params: dict, lang: str):
     ]
     register_toolkits(tools, analyst, user_proxy)
 
-    with Cache.disk() as cache:
-        user_proxy.initiate_chat(
-            analyst,
-            message=(
-                f"Use all the tools provided to retrieve information available for {company} upon {get_current_date()}. "
-                f"Analyze the positive developments and potential concerns of {company} "
-                "with 2-4 most important factors respectively and keep them concise. Most factors should be inferred from company related news. "
-                f"Then make a rough prediction (e.g. up/down by 2-3%) of the {company} stock price movement for next week. "
-                "Provide a summary analysis to support your prediction."
-                f"{lang_snippet}"
-            ),
-            cache=cache,
-        )
+    # 使用共通方法处理原生 agents 对话
+    prompt = (
+        f"Use all the tools provided to retrieve information available for {company} upon {get_current_date()}. "
+        f"Analyze the positive developments and potential concerns of {company} "
+        "with 2-4 most important factors respectively and keep them concise. Most factors should be inferred from company related news. "
+        f"Then make a rough prediction (e.g. up/down by 2-3%) of the {company} stock price movement for next week. "
+        "Provide a summary analysis to support your prediction."
+        f"{lang_snippet}"
+    )
 
-    # 统一返回结构以便前端复用
-    messages = extract_conversation(user_proxy)
+    # 注意：这里需要传递 cache 参数
+    with Cache.disk() as cache:
+        messages = setup_and_chat_with_raw_agents(
+            user_proxy, analyst, prompt, cache=cache
+        )
     return {"result": messages}
