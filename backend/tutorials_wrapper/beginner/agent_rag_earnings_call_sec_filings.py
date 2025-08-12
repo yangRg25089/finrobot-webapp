@@ -361,14 +361,30 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
     )
 
     # -----------------------------
-    # Autogen agent setup (kept same)
+    # Autogen agent setup (updated to match ollama_function_call.py style)
     # -----------------------------
+    import autogen
     from autogen import ConversableAgent, register_function
+    from finrobot.utils import register_keys_from_json
 
-    llm_config = {"model": _AI_model}
+    # Configure LLM like other scripts
+    config_path = base_dir / "OAI_CONFIG_LIST"
+    config_api_keys_path = base_dir / "config_api_keys"
+
+    llm_config = {
+        "config_list": autogen.config_list_from_json(
+            str(config_path),
+            filter_dict={"model": [_AI_model]},
+        ),
+        "timeout": 120,
+        "temperature": 0,
+        "max_tokens": 1024,
+    }
+
+    register_keys_from_json(str(config_api_keys_path))
 
     user_proxy = ConversableAgent(
-        name="Planner Admin",
+        name="PlannerAdmin",
         system_message=system_msg,
         code_execution_config=False,
         llm_config=llm_config,
@@ -377,14 +393,14 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
     )
 
     tool_proxy = ConversableAgent(
-        name="Tool Proxy",
+        name="ToolProxy",
         system_message=(
             "Analyze the response from user proxy and decide whether the suggested "
             "database is suitable . Answer in simple yes or no"
         ),
         llm_config=False,
         default_auto_reply="Please select the right database.",
-        human_input_mode="ALWAYS",
+        human_input_mode="NEVER",
     )
 
     tools_dict = {

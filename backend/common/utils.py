@@ -9,8 +9,22 @@ from pathlib import Path
 from typing import Any, Dict, Final, List, Optional
 from urllib.parse import unquote, unquote_plus
 
-import fitz  # PyMuPDF
-from PIL import Image
+# Optional imports for PDF processing
+try:
+    import fitz  # PyMuPDF
+
+    HAS_FITZ = True
+except ImportError:
+    HAS_FITZ = False
+    print("Warning: PyMuPDF (fitz) not installed. PDF processing will be disabled.")
+
+try:
+    from PIL import Image
+
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+    print("Warning: PIL (Pillow) not installed. Image processing will be disabled.")
 
 # =========================
 # Language directives
@@ -235,13 +249,25 @@ def extract_all(up) -> list[dict]:
 
 def pdf_first_page_to_base64(pdf_path: Path) -> str:
     """把 PDF 首页转成 base64-PNG 字符串（用于前端预览）。"""
-    pdf = fitz.open(str(pdf_path))
-    page = pdf.load_page(0)
-    pix = page.get_pixmap()
-    img = Image.open(io.BytesIO(pix.tobytes("png")))
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode("ascii")
+    if not HAS_FITZ:
+        print("Warning: PyMuPDF not available, cannot process PDF")
+        return ""
+
+    if not HAS_PIL:
+        print("Warning: PIL not available, cannot process images")
+        return ""
+
+    try:
+        pdf = fitz.open(str(pdf_path))
+        page = pdf.load_page(0)
+        pix = page.get_pixmap()
+        img = Image.open(io.BytesIO(pix.tobytes("png")))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as e:
+        print(f"Error converting PDF to base64: {e}")
+        return ""
 
 
 def _parse_params(params: Optional[str]) -> Dict[str, Any]:
