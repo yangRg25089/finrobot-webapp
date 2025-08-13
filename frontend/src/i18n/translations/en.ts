@@ -43,6 +43,8 @@ const translations = {
       from_markdown: 'Generate from Markdown',
       filing_types: 'Filing Types',
       competitors: 'Competitors',
+      start_date: 'Start Date',
+      end_date: 'End Date',
       _AI_model: 'AI model',
     },
     descriptions: {

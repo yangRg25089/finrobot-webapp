@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-# %%
 import os
 from pathlib import Path
 from textwrap import dedent
 
 import autogen
+import matplotlib
 from autogen.cache import Cache
 
 # project utilities
@@ -14,6 +14,7 @@ from common.utils import (
     collect_generated_files,
     create_llm_config,
     create_output_directory,
+    extract_all,
     get_script_result,
 )
 from finrobot.data_source import FMPUtils
@@ -27,39 +28,13 @@ from finrobot.functional import (
 from finrobot.toolkits import register_toolkits
 from finrobot.utils import register_keys_from_json
 
-# %% [markdown]
-# # Financial Analyst Agent for Annual Report Writing
-
-# %% [markdown]
-# In this demo, we introduce an agent that can analyze financial report.
-
-
-# optional: if available, use to extract message history
-try:
-    from common.utils import extract_all  # type: ignore
-except Exception:  # pragma: no cover
-    extract_all = None  # type: ignore
-
-
-# %% [markdown]
-# After importing all the necessary packages and functions, we also need the config for OpenAI & SecApi & FMPApi here.
-# - for openai configuration, rename OAI_CONFIG_LIST_sample to OAI_CONFIG_LIST and replace the api keys
-# - for Sec_api & FMP_api configuration, rename config_api_keys_sample to config_api_keys and replace the api keys
-
 
 def run(params: dict, lang: str) -> dict:
     # 强制使用非 GUI 的 Matplotlib 后端，避免在后台线程中启动 GUI 导致中断
-    import matplotlib
-
     matplotlib.use("Agg")
-
-    # 设置环境变量，减少 API 调用频率，避免 429 错误
-    import os
-    import time
 
     os.environ.setdefault("FMP_API_DELAY", "1")  # API 调用间隔1秒
 
-    # %%
     company = params.get("company", "NextEra")
     competitors = params.get("competitors", ["DUK", "CEG", "AEP"])
     fyear = params.get("fyear", "2024")
@@ -81,7 +56,6 @@ def run(params: dict, lang: str) -> dict:
     work_dir = str(result_path)
     os.makedirs(work_dir, exist_ok=True)
 
-    # %% [markdown]
     # For this task, we need:
     # - A user proxy to execute python functions and control the conversations.
     # - An expert agent who is proficient in financial analytical writing.
@@ -146,9 +120,6 @@ def run(params: dict, lang: str) -> dict:
         user_proxy,
     )
 
-    # %% [markdown]
-    # Nested chat trigger & message builder (kept from notebook)
-
     def order_trigger(sender):
         # Check if the last message contains the path to the instruction text file
         return "instruction & resources saved to" in sender.last_message()["content"]
@@ -193,14 +164,12 @@ def run(params: dict, lang: str) -> dict:
         trigger=order_trigger,
     )
 
-    # %% [markdown]
     # Resources list (kept as comments for reference)
     # 1. income statement: https://online.hbs.edu/blog/post/income-statement-analysis
     # 2. balance sheet: https://online.hbs.edu/blog/post/how-to-read-a-balance-sheet
     # 3. cash flow statement: https://online.hbs.edu/blog/post/how-to-read-a-cash-flow-statement
     # 4. Annual report: https://online.hbs.edu/blog/post/how-to-read-an-annual-report
 
-    # %%
     task = dedent(
         f"""
         With the tools you've been provided, write an annual report based on {company}'s and{competitors}'s{fyear} 10-k report, format it into a pdf.
