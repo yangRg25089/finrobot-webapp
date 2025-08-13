@@ -107,15 +107,10 @@ export function useRunScriptStream() {
             case 'result':
               {
                 const r = (ev as any).result ?? null;
-                const images: string[] = Array.isArray(r?.result_images)
-                  ? r.result_images
-                  : [];
-                const folder: string | null = r?.result_folder ?? null;
                 const err: string | null = r?.error ?? null;
                 setState((s) => ({
                   ...s,
                   result: r,
-                  images,
                   resultFolder: folder,
                   error: err ?? s.error,
                 }));

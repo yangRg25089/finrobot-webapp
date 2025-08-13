@@ -4,7 +4,11 @@ from pathlib import Path
 
 import autogen
 from autogen.cache import Cache
-from common.utils import build_lang_directive, setup_and_chat_with_raw_agents
+from common.utils import (
+    build_lang_directive,
+    get_script_result,
+    setup_and_chat_with_raw_agents,
+)
 from finrobot.data_source import FinnHubUtils, YFinanceUtils
 from finrobot.utils import get_current_date, register_keys_from_json
 
@@ -97,4 +101,7 @@ def run(params: dict, lang: str):
         messages = setup_and_chat_with_raw_agents(
             user_proxy, analyst, prompt, cache=cache
         )
-    return {"result": messages}
+    return get_script_result(
+        messages=messages,
+        prompt=prompt,
+    )

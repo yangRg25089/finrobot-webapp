@@ -2,29 +2,20 @@ from __future__ import annotations
 
 import ast
 import base64
+import inspect
 import io
 import json
+import math
 import re
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Final, List, Optional
 from urllib.parse import unquote, unquote_plus
 
-# Optional imports for PDF processing
-try:
-    import fitz  # PyMuPDF
-
-    HAS_FITZ = True
-except ImportError:
-    HAS_FITZ = False
-    print("Warning: PyMuPDF (fitz) not installed. PDF processing will be disabled.")
-
-try:
-    from PIL import Image
-
-    HAS_PIL = True
-except ImportError:
-    HAS_PIL = False
-    print("Warning: PIL (Pillow) not installed. Image processing will be disabled.")
+import autogen
+import fitz
+from PIL import Image
 
 # =========================
 # Language directives
@@ -209,8 +200,6 @@ def setup_and_chat_with_agents(
     assistant_or_user_proxy,
     assistant_agent=None,
     prompt: str = None,
-    script_name: str = None,
-    save_history: bool = True,
     **chat_kwargs,
 ) -> list[dict]:
     """
@@ -221,7 +210,6 @@ def setup_and_chat_with_agents(
         assistant_agent: AssistantAgent 实例（仅当第一个参数是 UserProxyAgent 时需要）
         prompt: 对话提示
         script_name: 脚本名称，用于历史保存
-        save_history: 是否保存对话历史
         **chat_kwargs: 传递给 initiate_chat 的额外参数
 
     Returns:
@@ -281,14 +269,6 @@ def setup_and_chat_with_agents(
         # 提取对话历史
         messages = extract_conversation(user_proxy)
 
-    # 保存对话历史
-    if save_history and messages:
-        try:
-            save_conversation_history(messages, script_name, prompt)
-        except Exception as e:
-            # 历史保存失败不应该影响主流程
-            print(f"Warning: Failed to save conversation history: {e}")
-
     return messages
 
 
@@ -302,7 +282,6 @@ def setup_and_chat_with_raw_agents(
         user_proxy: autogen.UserProxyAgent 实例
         assistant_agent: autogen.AssistantAgent 实例
         prompt: 对话提示
-        **chat_kwargs: 传递给 initiate_chat 的额外参数
 
     Returns:
         list[dict]: 对话历史消息列表
@@ -311,7 +290,6 @@ def setup_and_chat_with_raw_agents(
         assistant_or_user_proxy=user_proxy,
         assistant_agent=assistant_agent,
         prompt=prompt,
-        save_history=True,
         **chat_kwargs,
     )
 
@@ -351,34 +329,6 @@ def extract_all(up) -> list[dict]:
                     content = content.decode("utf-8", "ignore")
                 out.append({"name": name, "role": role, "content": content})
     return out
-
-
-# =========================
-# PDF utility
-# =========================
-
-
-def pdf_first_page_to_base64(pdf_path: Path) -> str:
-    """把 PDF 首页转成 base64-PNG 字符串（用于前端预览）。"""
-    if not HAS_FITZ:
-        print("Warning: PyMuPDF not available, cannot process PDF")
-        return ""
-
-    if not HAS_PIL:
-        print("Warning: PIL not available, cannot process images")
-        return ""
-
-    try:
-        pdf = fitz.open(str(pdf_path))
-        page = pdf.load_page(0)
-        pix = page.get_pixmap()
-        img = Image.open(io.BytesIO(pix.tobytes("png")))
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        return base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception as e:
-        print(f"Error converting PDF to base64: {e}")
-        return ""
 
 
 def _parse_params(params: Optional[str]) -> Dict[str, Any]:
@@ -434,7 +384,7 @@ def extract_params_from_file(py_path: Path) -> Dict[str, Dict[str, Any]]:
 
     DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-    def infer_type_and_value(default_expr: str) -> (str, Any):
+    def infer_type_and_value(default_expr: str):
         default_expr = default_expr.strip()
         # 优先用 literal_eval 只解析“安全字面量”
         try:
@@ -480,6 +430,27 @@ def extract_params_from_file(py_path: Path) -> Dict[str, Dict[str, Any]]:
 # =========================
 
 
+def get_output_path() -> Path:
+
+    # Auto-detect script name if not provided
+    frame = inspect.currentframe()
+    try:
+        # Go up the call stack to find the calling script
+        caller_frame = frame.f_back
+        while caller_frame:
+            filename = caller_frame.f_code.co_filename
+            if filename != __file__:  # Skip this utils file
+                script_path = Path(filename)._cparts[-2] + "/" + Path(filename).stem
+                break
+            caller_frame = caller_frame.f_back
+        else:
+            script_path = "unknown_script"
+    finally:
+        del frame
+
+    return script_path
+
+
 def create_output_directory(
     output_subdir: str = "output", script_name: str = None
 ) -> Path:
@@ -493,26 +464,9 @@ def create_output_directory(
     Returns:
         Path to the created output directory
     """
-    import inspect
-    from datetime import datetime
-    from pathlib import Path
 
-    # Auto-detect script name if not provided
     if script_name is None:
-        frame = inspect.currentframe()
-        try:
-            # Go up the call stack to find the calling script
-            caller_frame = frame.f_back
-            while caller_frame:
-                filename = caller_frame.f_code.co_filename
-                if filename != __file__:  # Skip this utils file
-                    script_name = Path(filename).stem
-                    break
-                caller_frame = caller_frame.f_back
-            else:
-                script_name = "unknown_script"
-        finally:
-            del frame
+        script_name = get_output_path()
 
     date = datetime.now().strftime("%Y%m%d")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -534,9 +488,6 @@ def collect_generated_files(output_path: Path) -> Dict[str, Any]:
     Returns:
         包含文件信息的字典
     """
-    import os
-    from datetime import datetime
-    from pathlib import Path
 
     if not output_path.exists():
         return {"files": [], "image_urls": [], "file_urls": [], "total_files": 0}
@@ -604,7 +555,6 @@ def collect_generated_files(output_path: Path) -> Dict[str, Any]:
         "file_urls": file_urls,
         "total_files": len(files_info),
         "output_directory": str(output_path),
-        "web_prefix": web_prefix,
     }
 
 
@@ -616,7 +566,6 @@ def format_file_size(size_bytes: int) -> str:
         return "0 B"
 
     size_names = ["B", "KB", "MB", "GB", "TB"]
-    import math
 
     i = int(math.floor(math.log(size_bytes, 1024)))
     p = math.pow(1024, i)
@@ -644,10 +593,6 @@ def create_llm_config(
     Returns:
         适配的 LLM 配置字典
     """
-    import json
-    from pathlib import Path
-
-    import autogen
 
     # 读取配置文件
     config_file = Path(config_path)
@@ -713,7 +658,10 @@ def create_llm_config(
 
 
 def save_conversation_history(
-    messages: List[dict], script_name: str = None, prompt: str = None
+    messages: List[dict],
+    script_name: str = None,
+    prompt: str = None,
+    additional_data: Optional[Dict[str, Any]] = None,
 ) -> Path:
     """
     保存对话历史到 history 目录
@@ -726,27 +674,8 @@ def save_conversation_history(
     Returns:
         保存的文件路径
     """
-    import inspect
-    import json
-    from datetime import datetime
-    from pathlib import Path
-
-    # 自动检测脚本名称
     if script_name is None:
-        frame = inspect.currentframe()
-        try:
-            # 向上查找调用栈，找到脚本文件
-            caller_frame = frame.f_back
-            while caller_frame:
-                filename = caller_frame.f_code.co_filename
-                if filename != __file__ and not filename.endswith("utils.py"):
-                    script_name = Path(filename).stem
-                    break
-                caller_frame = caller_frame.f_back
-            else:
-                script_name = "unknown_script"
-        finally:
-            del frame
+        script_name = get_output_path()
 
     # 创建历史目录
     history_dir = create_output_directory("history", script_name)
@@ -759,6 +688,10 @@ def save_conversation_history(
         "messages": messages,
         "message_count": len(messages),
     }
+
+    # 附加额外数据（如图片 URL、结果目录等）
+    if additional_data:
+        history_data.update(additional_data)
 
     # 保存到 JSON 文件
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -797,7 +730,6 @@ def cleanup_old_history(history_base_dir: Path, max_keep: int = 5):
     # 删除超出保留数量的目录
     for old_dir in date_dirs[max_keep:]:
         try:
-            import shutil
 
             shutil.rmtree(old_dir)
             print(f"Cleaned up old history: {old_dir}")
@@ -815,9 +747,6 @@ def load_conversation_history(script_name: str = None) -> List[dict]:
     Returns:
         历史记录列表，每个元素包含完整的对话数据
     """
-    import inspect
-    import json
-    from pathlib import Path
 
     # 自动检测脚本名称
     if script_name is None:
@@ -890,7 +819,6 @@ def save_output_files(
         queries: List of queries (if applicable)
         additional_data: Additional data to save
     """
-    from datetime import datetime
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
@@ -956,17 +884,16 @@ def save_output_files(
 
 def get_script_result(
     messages: List[Any],
-    output_path: Optional[Path] = None,
     error: Optional[str] = None,
     preview: Optional[str] = None,
     additional_data: Optional[Dict[str, Any]] = None,
+    prompt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create a standardized script result dictionary.
 
     Args:
         messages: List of messages or results
-        output_path: Path where output files are saved
         error: Error message (if any)
         preview: Preview data (e.g., base64 image)
         additional_data: Additional data to include
@@ -976,9 +903,6 @@ def get_script_result(
     """
     result = {"result": messages}
 
-    if output_path:
-        result["output_path"] = str(output_path)
-
     if error:
         result["error"] = error
 
@@ -987,5 +911,14 @@ def get_script_result(
 
     if additional_data:
         result.update(additional_data)
+
+    try:
+        save_conversation_history(
+            messages=messages if isinstance(messages, list) else [messages],
+            prompt=prompt,
+            additional_data=additional_data,
+        )
+    except Exception as e:
+        print(f"Warning: Failed to save conversation history in get_script_result: {e}")
 
     return result

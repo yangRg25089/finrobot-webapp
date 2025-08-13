@@ -68,4 +68,7 @@ def run(params: dict, lang: str) -> dict:
         script_name="agent_fingpt_forecaster",
         save_history=True,
     )
-    return get_script_result(messages=messages)
+    return get_script_result(
+        messages=messages,
+        prompt=prompt,
+    )

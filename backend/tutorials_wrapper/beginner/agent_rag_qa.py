@@ -109,4 +109,7 @@ def run(params: dict, lang: str) -> dict:
 
     # 使用共通方法处理第二个对话
     messages2 = setup_and_chat_with_agents(assitant, prompt)
-    return get_script_result(messages=messages1 + messages2)
+    return get_script_result(
+        messages=messages1 + messages2,
+        prompt=f"Q1: {question1}\nQ2: {question2}",
+    )

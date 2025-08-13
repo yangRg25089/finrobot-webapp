@@ -203,7 +203,11 @@ const App: React.FC = () => {
                   <ResultViewer
                     key={selectedScript?.script_name}
                     response={result}
-                    scriptName={selectedScript?.script_name}
+                    scriptName={
+                      selectedScript
+                        ? `${selectedScript.folder}/${selectedScript.script_name}`
+                        : undefined
+                    }
                     running={running}
                   />
                 </div>

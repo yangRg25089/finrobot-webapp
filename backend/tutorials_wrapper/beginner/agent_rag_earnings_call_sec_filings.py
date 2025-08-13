@@ -426,7 +426,7 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
     queries = [
         "What is the strategy of Google for artificial intelligence?",
         "What are the risk factors that Google faced this year?",
-        "What was forward estimates of Google for the year 2023?",
+        "What was forward estimates of Google for the year 2025?",
     ]
 
     messages: List[Any] = []
@@ -460,4 +460,7 @@ def run(params: Dict[str, Any], lang: str) -> Dict[str, Any]:
     )
 
     # Return standardized result
-    return get_script_result(messages=messages, output_path=result_path)
+    return get_script_result(
+        messages=messages,
+        prompt=f"Analyze {ticker} earnings and SEC filings for {year}",
+    )

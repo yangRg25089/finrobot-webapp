@@ -35,7 +35,11 @@ app.add_middleware(
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=BASE_DIR / "static"),
+    name="static",
+)
 
 
 class scriptRequest(BaseModel):
@@ -152,7 +156,7 @@ async def list_tutorial_scripts() -> Dict[str, List[Dict[str, Any]]]:
 
 
 # ===== 对话历史管理 API =====
-@app.get("/api/history/{script_name}")
+@app.get("/api/history/{script_name:path}")
 async def get_script_history(script_name: str):
     """
     获取指定脚本的对话历史
@@ -176,7 +180,7 @@ async def get_all_histories():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/history/{script_name}")
+@app.delete("/api/history/{script_name:path}")
 async def delete_script_history(script_name: str, timestamp: Optional[str] = None):
     """
     删除指定脚本的对话历史

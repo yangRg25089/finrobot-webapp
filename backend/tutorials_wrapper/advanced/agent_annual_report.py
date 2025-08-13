@@ -15,7 +15,6 @@ from common.utils import (
     create_llm_config,
     create_output_directory,
     get_script_result,
-    pdf_first_page_to_base64,
 )
 from finrobot.data_source import FMPUtils
 from finrobot.functional import (
@@ -49,6 +48,17 @@ except Exception:  # pragma: no cover
 
 
 def run(params: dict, lang: str) -> dict:
+    # 强制使用非 GUI 的 Matplotlib 后端，避免在后台线程中启动 GUI 导致中断
+    import matplotlib
+
+    matplotlib.use("Agg")
+
+    # 设置环境变量，减少 API 调用频率，避免 429 错误
+    import os
+    import time
+
+    os.environ.setdefault("FMP_API_DELAY", "1")  # API 调用间隔1秒
+
     # %%
     company = params.get("company", "NextEra")
     competitors = params.get("competitors", ["DUK", "CEG", "AEP"])
@@ -147,9 +157,27 @@ def run(params: dict, lang: str) -> dict:
         # Extract the path to the instruction text file from the last message
         full_order = recipient.chat_messages_for_summary(sender)[-1]["content"]
         txt_path = full_order.replace("instruction & resources saved to ", "").strip()
-        with open(txt_path, "r") as f:
-            instruction = f.read() + "\n\nReply TERMINATE at the end of your response."
-        return instruction
+
+        # 处理文件名过长或路径错误的情况
+        try:
+            # 检查路径是否合理（不包含换行符等异常字符）
+            if "\n" in txt_path or len(txt_path) > 255:
+                # 如果路径异常，尝试从工作目录中找到指令文件
+                import glob
+
+                instruction_files = glob.glob(f"{work_dir}/*instruction*.txt")
+                if instruction_files:
+                    txt_path = instruction_files[0]
+                else:
+                    return "Error: Could not find instruction file. Please try again."
+
+            with open(txt_path, "r") as f:
+                instruction = (
+                    f.read() + "\n\nReply TERMINATE at the end of your response."
+                )
+            return instruction
+        except (OSError, FileNotFoundError) as e:
+            return f"Error reading instruction file: {str(e)}. Please try again."
 
     expert.register_nested_chats(
         [
@@ -204,22 +232,10 @@ def run(params: dict, lang: str) -> dict:
     # Collect generated files and prepare preview
     generated = collect_generated_files(result_path)
 
-    pdf_files = [f for f in generated["files"] if f["path"].endswith(".pdf")]
-    preview_b64 = None
-    if pdf_files:
-        latest_pdf_info = max(pdf_files, key=lambda x: x["modified_time"])
-        latest_pdf_path = Path(latest_pdf_info["full_path"])
-        if latest_pdf_path.exists():
-            preview_b64 = pdf_first_page_to_base64(latest_pdf_path)
-
     return get_script_result(
         messages=messages,
-        output_path=result_path,
-        preview=preview_b64,
         additional_data={
             "generated_files": generated,
-            "result_images": generated["image_urls"],
-            "result_files": generated["file_urls"],
-            "work_directory": str(result_path),
         },
+        prompt=task,
     )

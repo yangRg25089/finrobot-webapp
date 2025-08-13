@@ -1,10 +1,5 @@
 {
-  "security.workspace.trust.untrustedFiles": "open",
-  "workbench.colorTheme": "Default Light+",
   "window.zoomLevel": 1,
-  "explorer.confirmDragAndDrop": false,
-  "explorer.confirmDelete": false,
-  "solidity.telemetry": true,
   "python.createEnvironment.trigger": "off",
   "terminal.integrated.inheritEnv": false,
   // ✅ Python 自动格式化 + 去除无用导入
@@ -16,17 +11,6 @@
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit",
     "source.fixAll": "explicit"
-  },
-
-  // ✅ Dart
-  "[dart]": {
-    "editor.formatOnSave": true,
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.rulers": [80],
-    "editor.selectionHighlight": false,
-    "editor.suggestSelection": "firsformatOnSavet",
-    "editor.tabCompletion": "onlySnippets",
-    "editor.wordBasedSuggestions": "off"
   },
 
   // ✅ JavaScript

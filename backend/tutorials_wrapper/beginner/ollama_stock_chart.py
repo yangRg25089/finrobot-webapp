@@ -6,6 +6,7 @@ from autogen import AssistantAgent, UserProxyAgent
 from common.runtime import guard_run
 from common.utils import (
     build_lang_directive,
+    collect_generated_files,
     create_llm_config,
     create_output_directory,
     get_script_result,
@@ -59,9 +60,9 @@ def is_term_msg_factory(work_dir: Path):
 
 @guard_run(reraise=True)
 def run(params: dict, lang: str) -> dict:
-    company = params.get("company", "AAPL")
+    company = params.get("company", "NVDA")
     year = params.get("year", "2025")
-    _AI_model = params.get("_AI_model", "qwen2.5-coder:14b")
+    _AI_model = params.get("_AI_model", "llama3:latest")
     lang_snippet = build_lang_directive(lang)
 
     from pathlib import Path
@@ -93,7 +94,7 @@ def run(params: dict, lang: str) -> dict:
         code_execution_config={"work_dir": str(result_path), "use_docker": False},
         human_input_mode="NEVER",
         default_auto_reply="",  # 不要客套自动回帖
-        max_consecutive_auto_reply=8,  # 给足回合跑代码
+        max_consecutive_auto_reply=2,  # 给足回合跑代码
         is_termination_msg=is_term_msg_factory(result_path),
     )
 
@@ -108,7 +109,6 @@ def run(params: dict, lang: str) -> dict:
         - On success, print exactly: "SAVED_IMAGE: {out_path}"
         - On failure, print exactly: "ERROR: <message>"
         - Return exactly ONE Python code block and nothing else. NO extra text outside the code block.
-
         {lang_snippet}
         """.strip()
 
@@ -117,43 +117,13 @@ def run(params: dict, lang: str) -> dict:
         user_proxy, assistant, prompt, max_turns=10
     )
 
-    # 产物与可访问 URL
-    static_root = (current_dir.parent.parent / "static").resolve()
-    rel = result_path.resolve().relative_to(static_root)
-    web_prefix = f"/static/{rel.as_posix()}"
-    web_folder = web_prefix + "/"
-
-    exts = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
-    images = [
-        f"{web_prefix}/{p.name}"
-        for p in sorted(result_path.iterdir())
-        if p.is_file() and p.suffix.lower() in exts
-    ]
-
-    # 如果没生成图片，把最后的错误回传，避免前端“无限等”
-    if not images:
-        last_err = next(
-            (
-                m.get("content")
-                for m in reversed(messages)
-                if isinstance(m.get("content"), str)
-                and m["content"].startswith("ERROR:")
-            ),
-            None,
-        )
-        return get_script_result(
-            messages=messages,
-            error=last_err or "No image generated.",
-            additional_data={
-                "result_folder": web_folder,
-                "result_images": images,
-            },
-        )
+    # 使用统一的文件收集与预览信息，兼容静态挂载到 /static/output
+    generated = collect_generated_files(result_path)
 
     return get_script_result(
         messages=messages,
         additional_data={
-            "result_folder": web_folder,
-            "result_images": images,
+            "generated_files": generated,
         },
+        prompt=prompt,
     )

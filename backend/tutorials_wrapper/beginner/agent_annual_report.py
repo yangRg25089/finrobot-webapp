@@ -5,14 +5,12 @@
 import os
 from textwrap import dedent
 
-import autogen
 from common.utils import (
     build_lang_directive,
     collect_generated_files,
     create_llm_config,
     create_output_directory,
     get_script_result,
-    pdf_first_page_to_base64,
     setup_and_chat_with_agents,
 )
 from finrobot.agents.workflow import SingleAssistantShadow
@@ -26,7 +24,7 @@ from finrobot.utils import register_keys_from_json
 def run(params: dict, lang: str) -> dict:
 
     company = params.get("company", "apple")
-    fyear = params.get("fyear", "2023")
+    fyear = params.get("fyear", "2025")
     _AI_model = params.get("_AI_model", "gemini-2.5-flash")
     lang_snippet = build_lang_directive(lang)
 
@@ -75,27 +73,12 @@ def run(params: dict, lang: str) -> dict:
     # 使用共通方法处理对话
     messages = setup_and_chat_with_agents(assistant, prompt)
 
-    # 收集所有生成的文件
     generated_files = collect_generated_files(result_path)
-
-    # 查找 PDF 文件并生成预览
-    pdf_files = [f for f in generated_files["files"] if f["path"].endswith(".pdf")]
-    preview_b64 = None
-    if pdf_files:
-        # 使用最新的 PDF 文件
-        latest_pdf_info = max(pdf_files, key=lambda x: x["modified_time"])
-        latest_pdf_path = Path(latest_pdf_info["full_path"])
-        if latest_pdf_path.exists():
-            preview_b64 = pdf_first_page_to_base64(latest_pdf_path)
 
     return get_script_result(
         messages=messages,
-        output_path=result_path,
-        preview=preview_b64,
         additional_data={
             "generated_files": generated_files,
-            "result_images": generated_files["image_urls"],
-            "result_files": generated_files["file_urls"],
-            "work_directory": str(result_path),
         },
+        prompt=prompt,
     )

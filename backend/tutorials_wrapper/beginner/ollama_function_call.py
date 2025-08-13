@@ -67,4 +67,7 @@ def run(params: dict, lang: str) -> dict:
 
     messages = setup_and_chat_with_raw_agents(user_proxy, analyst, prompt)
 
-    return get_script_result(messages=messages)
+    return get_script_result(
+        messages=messages,
+        prompt=prompt,
+    )

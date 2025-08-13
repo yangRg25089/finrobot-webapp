@@ -10,6 +10,7 @@ export interface HistoryRecord {
   messages: any[];
   display_name: string;
   relative_path: string;
+  generated_files?: { files: any[] } | null;
 }
 
 export interface HistoryApiResponse {
