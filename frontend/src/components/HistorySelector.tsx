@@ -143,12 +143,6 @@ export const HistorySelector: React.FC<HistorySelectorProps> = ({
               </option>
             ))}
           </select>
-          {loading && (
-            <div className="flex items-center text-sm text-gray-500">
-              <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-              {t('common.loading')}
-            </div>
-          )}
           {selectedHistoryId && (
             <button
               onClick={handleDeleteHistory}

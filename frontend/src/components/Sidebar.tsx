@@ -80,7 +80,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <ul className="mt-2 ml-2 space-y-1">
                     {items.map((s) => {
                       const active =
-                        selectedScript?.script_name === s.script_name;
+                        selectedScript?.script_name === s.script_name &&
+                        selectedScript?.folder === s.folder;
                       return (
                         <li key={s.script_name}>
                           <button

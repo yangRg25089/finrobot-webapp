@@ -93,7 +93,7 @@ def run(params: dict, lang: str) -> dict:
         "user_proxy",
         code_execution_config={"work_dir": str(result_path), "use_docker": False},
         human_input_mode="NEVER",
-        default_auto_reply="",  # 不要客套自动回帖
+        default_auto_reply="",
         max_consecutive_auto_reply=2,  # 给足回合跑代码
         is_termination_msg=is_term_msg_factory(result_path),
     )

@@ -48,20 +48,22 @@ const translations = {
       _AI_model: 'AI model',
     },
     descriptions: {
-      agent_annual_report:
-        'Annual-report writer agent: automatically reads a company’s 10-K, writes a 400-450-word analysis following a fixed outline, and lays it out as a PDF while demonstrating the file tool-chain, image preview and PDF saving.',
-      agent_fingpt_forecaster:
-        'FinGPT-Forecaster re-implemented with FinRobot: pulls prices and news, uses multi-turn dialogue to extract factors, predicts the next five trading days’ movement and explains the reasoning, showcasing a single-assistant chain-of-thought market forecast.',
-      agent_rag_earnings_call_sec_filings:
-        'Multi-database RAG example: queries three vector stores—earnings-call transcripts and SEC 10-K/10-Q in both text and Markdown—then chooses the best one via tool functions to answer financial-report questions.',
-      agent_rag_qa:
-        'Minimal RAG-QA: splits one PDF into chunks, stores them in Chroma, and answers questions through a RetrieveChat agent, showing the smallest viable FinRobot + Autogen integration.',
-      agent_rag_qa_up:
-        'Enhanced version of the previous script: supports multiple documents, configurable chunk size and collection name, and demonstrates how to persist and reuse the vector store.',
-      ollama_function_call:
-        'function-calling demo: requests structured JSON, executes it with code, and shows FinRobot hosting custom tools and parsing a JSON schema.',
-      ollama_stock_chart:
-        'Ollama stock-chart notebook: chats with Ollama to generate stock-analysis commands, the Python backend fetches data and plots, then returns the image and a Markdown summary—illustrating a full LLM-plus-code visualization loop.',
+      beginner: {
+        agent_annual_report:
+          'Annual-report writer agent: automatically reads a company’s 10-K, writes a 400-450-word analysis following a fixed outline, and lays it out as a PDF while demonstrating the file tool-chain, image preview and PDF saving.',
+        agent_fingpt_forecaster:
+          'FinGPT-Forecaster re-implemented with FinRobot: pulls prices and news, uses multi-turn dialogue to extract factors, predicts the next five trading days’ movement and explains the reasoning, showcasing a single-assistant chain-of-thought market forecast.',
+        agent_rag_earnings_call_sec_filings:
+          'Multi-database RAG example: queries three vector stores—earnings-call transcripts and SEC 10-K/10-Q in both text and Markdown—then chooses the best one via tool functions to answer financial-report questions.',
+        agent_rag_qa:
+          'Minimal RAG-QA: splits one PDF into chunks, stores them in Chroma, and answers questions through a RetrieveChat agent, showing the smallest viable FinRobot + Autogen integration.',
+        agent_rag_qa_up:
+          'Enhanced version of the previous script: supports multiple documents, configurable chunk size and collection name, and demonstrates how to persist and reuse the vector store.',
+        ollama_function_call:
+          'function-calling demo: requests structured JSON, executes it with code, and shows FinRobot hosting custom tools and parsing a JSON schema.',
+        ollama_stock_chart:
+          'Ollama stock-chart notebook: chats with Ollama to generate stock-analysis commands, the Python backend fetches data and plots, then returns the image and a Markdown summary—illustrating a full LLM-plus-code visualization loop.',
+      },
     },
   },
 };

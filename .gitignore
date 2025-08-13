@@ -74,5 +74,6 @@ backend/test/
 # (add any tmp folders you create during experiments)
 tmp/
 temp/
+test/
 
 .augment/rules

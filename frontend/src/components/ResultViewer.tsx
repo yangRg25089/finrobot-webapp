@@ -21,10 +21,9 @@ const ResultViewer: React.FC<ResultViewerProps> = ({
   const { t } = useTranslation();
   const [currentResponse, setCurrentResponse] = useState(response);
 
-  // 当脚本名称变化时，立即清空当前响应，避免显示上一个脚本的内容
   useEffect(() => {
     setCurrentResponse(null);
-  }, [scriptName, running]);
+  }, [running]);
 
   // 当 response 变化时更新当前响应（但不在脚本切换时）
   useEffect(() => {

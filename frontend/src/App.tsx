@@ -80,23 +80,13 @@ const App: React.FC = () => {
 
     setSelectedScript(script);
     // 3) 选择后写入 localStorage
-    try {
-      localStorage.setItem(
-        'selectedScript',
-        JSON.stringify({
-          script_name: script.script_name,
-          folder: script.folder,
-        }),
-      );
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleResultReset = () => {
-    // 重置结果和日志
-    stop();
-    setElapsedMs(0);
+    localStorage.setItem(
+      'selectedScript',
+      JSON.stringify({
+        script_name: script.script_name,
+        folder: script.folder,
+      }),
+    );
   };
 
   const handleFormSubmit = async (data: any) => {

@@ -74,7 +74,9 @@ const ScriptForm: React.FC<ScriptFormProps> = ({
     });
   };
 
-  const scriptDesc = t(`common.descriptions.${selectedScript.script_name}`);
+  const scriptDesc = t(
+    `common.descriptions.${selectedScript.folder}.${selectedScript.script_name}`,
+  );
 
   return (
     <div className="flex gap-8">
