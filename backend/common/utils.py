@@ -14,8 +14,6 @@ from typing import Any, Dict, Final, List, Optional
 from urllib.parse import unquote, unquote_plus
 
 import autogen
-import fitz
-from PIL import Image
 
 # =========================
 # Language directives
@@ -25,9 +23,9 @@ JA_DIRECTIVE: Final[
     str
 ] = """
 言語指示：
-- 分析本文を日本語で作成してください。
+- 最後の分析本文を日本語で作成してください。
 - セクション構成は英語版と同等にしつつ、日本語として自然な表現を用いてください。
-- ティッカー、コード識別子、APIフィールド名は英語のままにしてください（翻訳しない）。
+- PDF、ティッカー、コード識別子、APIフィールド名は英語のままにしてください（翻訳しない）。
 - Markdown 形式を使用し、日付は YYYY-MM-DD で表記してください。
 - 全体のメッセージの末尾は "TERMINATE" で終えてください。
 """
@@ -36,8 +34,8 @@ ZH_DIRECTIVE: Final[
     str
 ] = """
 语言指令：
-- 分析正文使用中文撰写，并保持逻辑清晰、结构完整。
-- 股票代码、函数名、API 字段名保持英文，不要翻译。
+- 最后的分析正文使用中文撰写，并保持逻辑清晰、结构完整。
+- pdf、股票代码、函数名、API 字段名保持英文，不要翻译。
 - 使用 Markdown 格式；日期使用 YYYY-MM-DD。
 - 整体消息以 "TERMINATE" 作为结尾。
 """

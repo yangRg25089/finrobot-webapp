@@ -80,7 +80,9 @@ def run(params: dict, lang: str) -> dict:
         {lang_snippet}""".strip()
 
     # 使用共通方法处理第一个对话
-    messages1 = setup_and_chat_with_agents(assitant, prompt)
+    messages1 = setup_and_chat_with_agents(
+        assistant_or_user_proxy=assitant, prompt=prompt
+    )
 
     # Here we come up with a more complex case, where we put the 10-k report of MSFT here.
     #
@@ -108,7 +110,9 @@ def run(params: dict, lang: str) -> dict:
         {lang_snippet}""".strip()
 
     # 使用共通方法处理第二个对话
-    messages2 = setup_and_chat_with_agents(assitant, prompt)
+    messages2 = setup_and_chat_with_agents(
+        assistant_or_user_proxy=assitant, prompt=prompt
+    )
     return get_script_result(
         messages=messages1 + messages2,
         prompt=f"Q1: {question1}\nQ2: {question2}",

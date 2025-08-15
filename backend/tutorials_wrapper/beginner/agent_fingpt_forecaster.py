@@ -65,8 +65,6 @@ def run(params: dict, lang: str) -> dict:
     messages = setup_and_chat_with_agents(
         assistant_or_user_proxy=assitant,
         prompt=prompt,
-        script_name="agent_fingpt_forecaster",
-        save_history=True,
     )
     return get_script_result(
         messages=messages,

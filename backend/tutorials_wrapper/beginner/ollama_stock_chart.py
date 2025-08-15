@@ -62,7 +62,7 @@ def is_term_msg_factory(work_dir: Path):
 def run(params: dict, lang: str) -> dict:
     company = params.get("company", "NVDA")
     year = params.get("year", "2025")
-    _AI_model = params.get("_AI_model", "llama3:latest")
+    _AI_model = params.get("_AI_model", "qwen3:latest")
     lang_snippet = build_lang_directive(lang)
 
     from pathlib import Path
@@ -106,7 +106,7 @@ def run(params: dict, lang: str) -> dict:
         - Use ticker "{company}", year {year}, download with yfinance: start="{year}-01-01", end="{year}-12-31", progress=False.
         - Use matplotlib.use("Agg"); DO NOT call plt.show().
         - Plot Close vs Date; tight_layout(); save PNG to exactly: "{out_path}".
-        - On success, print exactly: "SAVED_IMAGE: {out_path}"
+        - On success, print exactly: "SAVED_IMAGE"
         - On failure, print exactly: "ERROR: <message>"
         - Return exactly ONE Python code block and nothing else. NO extra text outside the code block.
         {lang_snippet}

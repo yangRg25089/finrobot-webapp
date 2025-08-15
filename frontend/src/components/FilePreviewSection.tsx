@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,40 +8,17 @@ interface FilePreviewSectionProps {
   generatedFiles: any[];
 }
 
-const A4_RATIO = 1.41421356237; // 高/宽 ~= sqrt(2)
-
-const useResizeWidth = () => {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState<number>(0);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const el = ref.current;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect?.width || 0;
-      setWidth(w);
-    });
-    ro.observe(el);
-    setWidth(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
-
-  return { ref, width };
-};
-
 const PdfPreview: React.FC<{ src: string; title: string }> = ({
   src,
   title,
 }) => {
-  const { ref, width } = useResizeWidth();
-  const height = Math.max(360, Math.round(width * A4_RATIO));
   return (
-    <div ref={ref} className="mt-3 w-full">
+    <div className="mt-3">
       <iframe
         src={src}
-        className="w-full border rounded"
+        className="w-full h-[1200px] border rounded"
         title={title}
-        style={{ height }}
+        loading="lazy"
       />
     </div>
   );

@@ -269,7 +269,6 @@ def run(params: dict, lang: str) -> dict:
             Tool policy:
             - You may use exactly two tools:
               1) BackTraderUtils.back_test
-              2) IPythonUtils.display_image
             - Allowed parameters for back_test: ticker_symbol, start_date, end_date, strategy, save_fig,
               strategy_params (JSON or k=v), sizer (optional), sizer_params (JSON or k=v), cash (optional).
             - DO NOT pass any other parameters (e.g., commission, slippage, etc.).
@@ -294,11 +293,9 @@ def run(params: dict, lang: str) -> dict:
     # 注册“写文件”工具（现在已被我们打过“只保留 basename”的补丁）
     register_code_writing(strategist, user_proxy)
 
-    # 只注册你要求的两枚工具：原始 back_test 与 display_image
     register_toolkits(
         [
-            BackTraderUtils.back_test,  # 直接注册原函数
-            IPythonUtils.display_image,
+            BackTraderUtils.back_test,
         ],
         strategist,
         user_proxy,

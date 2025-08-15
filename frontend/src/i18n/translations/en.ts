@@ -45,6 +45,8 @@ const translations = {
       competitors: 'Competitors',
       start_date: 'Start Date',
       end_date: 'End Date',
+      symbol: 'Symbol',
+      benchmark: 'Benchmark',
       _AI_model: 'AI model',
     },
     descriptions: {

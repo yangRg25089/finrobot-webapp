@@ -34,13 +34,11 @@ def run(params: dict, lang: str) -> dict:
     config_path = current_dir.parent.parent / "OAI_CONFIG_LIST"
     config_api_keys_path = current_dir.parent.parent / "config_api_keys"
 
-    # 使用共通方法创建 LLM 配置，自动适配不同模型类型
     llm_config = create_llm_config(
         config_path=str(config_path),
         model_name=_AI_model,
-        temperature=0.5,
+        temperature=0,
         timeout=120,
-        max_tokens=1024,
     )
 
     register_keys_from_json(str(config_api_keys_path))
@@ -71,7 +69,9 @@ def run(params: dict, lang: str) -> dict:
     )
 
     # 使用共通方法处理对话
-    messages = setup_and_chat_with_agents(assistant, prompt)
+    messages = setup_and_chat_with_agents(
+        assistant_or_user_proxy=assistant, prompt=prompt
+    )
 
     generated_files = collect_generated_files(result_path)
 
