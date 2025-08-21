@@ -10,7 +10,6 @@ import autogen
 import matplotlib
 from autogen.cache import Cache
 
-# 强制非 GUI 的 Matplotlib 后端
 matplotlib.use("Agg")
 
 # project utilities

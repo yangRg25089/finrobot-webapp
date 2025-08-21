@@ -6,6 +6,8 @@ from textwrap import dedent
 
 import autogen
 import matplotlib
+
+matplotlib.use("Agg")
 from autogen.cache import Cache
 
 # project utilities
@@ -31,7 +33,6 @@ from finrobot.utils import register_keys_from_json
 
 def run(params: dict, lang: str) -> dict:
     # 强制使用非 GUI 的 Matplotlib 后端，避免在后台线程中启动 GUI 导致中断
-    matplotlib.use("Agg")
 
     os.environ.setdefault("FMP_API_DELAY", "1")  # API 调用间隔1秒
 
