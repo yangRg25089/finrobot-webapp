@@ -42,6 +42,12 @@ const translations = {
       build_marker_pdf: 'PDFを生成',
       from_markdown: 'Markdownから生成',
       filing_types: '提出書類の種類',
+      competitors: '競合他社',
+      start_date: '開始日',
+      end_date: '終了日',
+      symbol: 'シンボル',
+      benchmark: 'ベンチマーク',
+      _AI_model: 'AIモデル',
     },
     descriptions: {
       beginner: {

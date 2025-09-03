@@ -42,6 +42,12 @@ const translations = {
       build_marker_pdf: '生成PDF',
       from_markdown: '从Markdown生成',
       filing_types: '申报类型',
+      competitors: '竞争对手',
+      start_date: '开始日期',
+      end_date: '结束日期',
+      symbol: '股票代码',
+      benchmark: '基准指标',
+      _AI_model: 'AI模型',
     },
     descriptions: {
       beginner: {
